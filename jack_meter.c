@@ -298,7 +298,7 @@ int main(int argc, char *argv[])
 	// Make STDOUT unbuffered
 	setbuf(stdout, NULL);
 
-	while ((opt = getopt(argc, argv, "s:w:f:r:nhv")) != -1) {
+	while ((opt = getopt(argc, argv, "s:f:r:l:nhv")) != -1) {
 		switch (opt) {
 			case 's':
 				server_name = copy_malloc( optarg );
@@ -312,14 +312,6 @@ int main(int argc, char *argv[])
 				fprintf(stderr,"Reference level: %.1fdB\n", ref_lev);
 				bias = powf(10.0f, ref_lev * -0.05f);
 				break;
-			case 'c':
-			    channels = atoi(optarg);
-			    if (channels < 1) {
-			        channels = 1;
-			    } else if (channels > MAX_CHANNELS) {
-			        channels = MAX_CHANNELS;
-			    }
-			    break;
 			case 'f':
 				rate = atoi(optarg);
 				fprintf(stderr,"Updates per second: %d\n", rate);
@@ -347,8 +339,6 @@ int main(int argc, char *argv[])
     // ensure the entire display buffer has been cleared
     initialise_display();
 
-
-
 	// Register with Jack
 	if ((client = jack_client_open("meter", options, &status, server_name)) == 0) {
 		fprintf(stderr, "Failed to start jack client: %d\n", status);
@@ -362,7 +352,7 @@ int main(int argc, char *argv[])
 	{
 	    char port_name[10];
 	    sprintf( port_name, "in%d", channel );
-
+	    fprintf(stderr,"Registering port '%s' on channel %d.\n", port_name, channel );
         if (!(channel_info[channel].input_port = jack_port_register(client, port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0))) {
             fprintf(stderr, "Cannot register input port 'meter:%s'.\n", port_name );
             exit(1);
@@ -377,7 +367,6 @@ int main(int argc, char *argv[])
 	// Register the peak signal callback
 	jack_set_process_callback(client, process_peak, 0);
 
-
 	if (jack_activate(client)) {
 		fprintf(stderr, "Cannot activate client.\n");
 		exit(1);
@@ -388,7 +377,7 @@ int main(int argc, char *argv[])
 	if (argc > optind) {
 
 	    channels=0;
-		while (argc > optind && channel<MAX_CHANNELS) {
+		while (argc > optind && channels<MAX_CHANNELS) {
 			connect_port( client, argv[ optind ], channels );
 			optind++;
 			channels++;
