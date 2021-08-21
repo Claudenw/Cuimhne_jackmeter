@@ -365,6 +365,7 @@ static void cleanup()
     }
     /* Leave the jack graph */
     jack_client_close(client);
+    clear_display();
     remove_fifo( fifo_name );
     free_copy( fifo_name );
     free_copy( server_name );
@@ -544,7 +545,7 @@ int main(int argc, char *argv[])
         fsleep( 1.0f/rate );
         debug( 4, "WOKE UP\n" );
 	}
-	cleanup();
+
 	return 0;
 }
 
