@@ -55,6 +55,7 @@ jack_options_t options = JackNoStartServer;
 int xrun_count = 0;
 
 #define DEFAULT_FIFO_NAME "/run/jack_meter"
+char* fifo_name = NULL;
 FILE *fifo = NULL;
 
 int displaying = 0;
@@ -151,30 +152,6 @@ static int iec_scale(float db, int size) {
 }
 
 
-/* Close down JACK when exiting */
-static void cleanup()
-{
-	const char **all_ports;
-	unsigned int i;
-	unsigned int channel;
-	debug( 2, "cleanup()\n");
-
-	for (channel = 0; channel < MAX_CHANNELS; channel++) {
-        if (channel_info[channel].input_port != NULL ) {
-
-            all_ports = jack_port_get_all_connections(client, channel_info[channel].input_port);
-
-            for (i=0; all_ports && all_ports[i]; i++) {
-                jack_disconnect(client, all_ports[i], jack_port_name(channel_info[channel].input_port));
-            }
-        }
-	}
-	/* Leave the jack graph */
-	jack_client_close(client);
-
-}
-
-
 /* Connect the chosen port to ours */
 static void connect_port(jack_client_t *client, char *port_name, unsigned int channel)
 {
@@ -244,6 +221,16 @@ char* configure_buffer( char* display_buffer, char row ) {
     return &display_buffer[6];
 }
 
+void clear_display() {
+    char display_buffer[DISPLAY_WIDTH];
+    configure_buffer( display_buffer, '2' );
+    write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
+    configure_buffer( display_buffer, '3' );
+    write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
+    configure_buffer( display_buffer, '4' );
+    write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
+}
+
 void display_meter( struct channel_info_t *info )
 {
     char display_buffer[DISPLAY_WIDTH];
@@ -309,6 +296,12 @@ char* copy_malloc( char* s ) {
     return strcpy ((char *) malloc (sizeof (char) * (strlen(s)+1)), s);
 }
 
+void free_copy( char * s ) {
+    if ( s ) {
+        free( s );
+    }
+}
+
 char parse_char( char * s ) {
     int len = strlen(s);
     if (len == 0) {
@@ -331,19 +324,53 @@ char parse_char( char * s ) {
     return s[0];
 }
 
-FILE* make_fifo( const char * name ) {
-    if (access( name, F_OK ) == 0 ) {
-        remove( name );
+void remove_fifo( const char * name ) {
+    if (name != 0) {
+        if (access( name, F_OK ) == 0 ) {
+            remove( name );
+        }
     }
-    debug( 3, "Creating fifo %s\n", name);
+}
+
+FILE* make_fifo( const char * name ) {
+    remove_fifo( fifo_name );
+    fifo_name = copy_malloc( name );
+    remove_fifo( fifo_name );
+    debug( 3, "Creating fifo %s\n", fifo_name);
     umask( 0 );
-    mkfifo( name, 0666);
-    int fd1 = open( name, O_RDONLY | O_NONBLOCK );
+    mkfifo( fifo_name, 0666);
+    int fd1 = open( fifo_name, O_RDONLY | O_NONBLOCK );
     FILE *f =  fdopen( fd1, "r" );
     setbuf(f, NULL);
     return f;
 }
 
+/* Close down JACK when exiting */
+static void cleanup()
+{
+    const char **all_ports;
+    unsigned int i;
+    unsigned int channel;
+    debug( 2, "cleanup()\n");
+
+    for (channel = 0; channel < MAX_CHANNELS; channel++) {
+        if (channel_info[channel].input_port != NULL ) {
+
+            all_ports = jack_port_get_all_connections(client, channel_info[channel].input_port);
+
+            for (i=0; all_ports && all_ports[i]; i++) {
+                jack_disconnect(client, all_ports[i], jack_port_name(channel_info[channel].input_port));
+            }
+        }
+    }
+    /* Leave the jack graph */
+    jack_client_close(client);
+    remove_fifo( fifo_name );
+    free_copy( fifo_name );
+    free_copy( server_name );
+    free_copy( lcd_device );
+
+}
 int main(int argc, char *argv[])
 {
     jack_status_t status;
@@ -488,13 +515,9 @@ int main(int argc, char *argv[])
 	    if (err) {
 	        debug( 3, "Read error on fifo: %d", err );
 	    } else {
-	        debug( 3, "Received command %c (0x%x)\n", cmd, cmd );
-	        int err = ferror(fifo);
-	                if (err) {
-	                    debug( 3, "Read error on fifo: %d", err );
-	                }
 	        if (cmd == '0') {
 	            displaying = 0;
+	            clear_display();
 	        } else if (cmd == '1' ) {
 	            displaying = 1;
 	        } else if (cmd == 'x' ) {
@@ -521,7 +544,7 @@ int main(int argc, char *argv[])
         fsleep( 1.0f/rate );
         debug( 4, "WOKE UP\n" );
 	}
-
+	cleanup();
 	return 0;
 }
 
