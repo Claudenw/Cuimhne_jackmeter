@@ -335,6 +335,7 @@ FILE* make_fifo( const char * name ) {
     if (access( name, F_OK ) == 0 ) {
         remove( name );
     }
+    debug( 3, "Creating fifo %s\n", name);
     umask( 0 );
     mkfifo( name, 0666);
     int fd1 = open( name, O_RDONLY | O_NONBLOCK );
@@ -407,6 +408,11 @@ int main(int argc, char *argv[])
 	if (!fifo) {
 	    fifo = make_fifo( DEFAULT_FIFO_NAME );
 	}
+	if (!fifo) {
+	    debug( 1, "Unable to open FIFO");
+	    exit(1);
+	}
+
 	// ensure we have a device
 	if (!lcd_device) {
         lcd_device = copy_malloc( DEFAULT_DEVICE );
