@@ -258,7 +258,6 @@ void display_meter( struct channel_info_t *info )
     memset( display_text, meter_char, size*sizeof(char) );
     display_text[info->dpeak]=peak_char;
 
-    debug( 5, "Disp: %s\n", display_text );
     // write the line
     write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
 }
@@ -321,17 +320,28 @@ int main(int argc, char *argv[])
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
-	while ((opt = getopt(argc, argv, "d:s:f:r:l:nhv")) != -1) {
+	while ((opt = getopt(argc, argv, "d:p:m:s:f:r:l:nhv")) != -1) {
 		switch (opt) {
+		    case 'p':
+		        peak_char = (char)atoi( optarg );
+                debug( 3, "Setting peak char %x\n", peak_char);
+		        break;
+		    case 'm':
+		        meter_char = (char)atoi( optarg );
+		        debug( 3, "Setting meter char %x\n", meter_char);
+		        break;
 		    case 'd':
 		        debug_level = atoi(optarg);
+                debug( 1, "Setting debug level %i\n",debug_level);
 		        break;
 			case 's':
 				server_name = copy_malloc( optarg );
 				options |= JackServerName;
+                debug( 3, "Setting server name %s\n", server_name );
 				break;
 			case 'l':
 			    lcd_device = copy_malloc( optarg );
+                debug( 3, "Setting lcd_device %s\n", server_name );
                 break;
 			case 'r':
 				ref_lev = atof(optarg);
