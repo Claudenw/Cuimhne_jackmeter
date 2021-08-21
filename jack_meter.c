@@ -295,9 +295,6 @@ int main(int argc, char *argv[])
 	int rate = 8;
 	int opt;
 
-	// ensure the entire display buffer has been cleared
-	initialise_display();
-
 	// clear channel info
 	memset( channel_info, 0, (MAX_CHANNELS)*sizeof(struct channel_t));
 
@@ -341,6 +338,10 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "Using LCD %s\n", lcd_device );
 	lcd = open( lcd_device, O_WRONLY);
 	fprintf(stderr, "LCD %s opened as %d\n", lcd_device, lcd );
+
+    // ensure the entire display buffer has been cleared
+    initialise_display();
+
 
 
 	// Register with Jack
