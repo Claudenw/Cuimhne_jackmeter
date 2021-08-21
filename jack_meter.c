@@ -305,7 +305,25 @@ char* copy_malloc( char* s ) {
 }
 
 char parse_char( char * s ) {
-    char c = 0x00;
+    int len = strlen(s);
+    if (len == 0) {
+        debug(2, "No parameter string provided\n");
+    }
+    if (s[0] == '0') {
+        if (len == 1) {
+            return s[0];
+        }
+        if (len != 4 ) {
+            debug(2, "Exactly 2 hex characters must be provided in the form 0xNN for an escaped character (%s)\n", s );
+            return s[0];
+        } else {
+            unsigned n;
+            sscanf( s, "%x", &n );
+            debug( 5, "Parsed %d (0x%x) from %s\n", n, n, s );
+            return (char)n;
+        }
+    }
+    return s[0];
 }
 
 int main(int argc, char *argv[])
@@ -327,11 +345,11 @@ int main(int argc, char *argv[])
 	while ((opt = getopt(argc, argv, "d:p:m:s:f:r:l:nhv")) != -1) {
 		switch (opt) {
 		    case 'p':
-		        peak_char = (char)optarg[0];
+		        peak_char = parse_char( optarg );
                 debug( 3, "Setting peak char %x\n", peak_char);
 		        break;
 		    case 'm':
-		        meter_char = optarg[0];
+		        meter_char = parse_char( optarg );
 		        debug( 3, "Setting meter char %x\n", meter_char);
 		        break;
 		    case 'd':
