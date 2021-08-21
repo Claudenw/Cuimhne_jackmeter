@@ -470,12 +470,14 @@ int main(int argc, char *argv[])
 	decay_len = (int)(1.6f / (1.0f/rate));
 
 	struct channel_info_t *info;
+	char cmd;
 	while (running) {
 
 	    // check for state change
+
+	    cmd = fgetc( fifo );
 	    if (!feof(fifo)) {
-	        char cmd = fgetc( fifo );
-	        debug( 3, "Received command %c", cmd );
+	        debug( 3, "Received command %c (0x%x)\n", cmd, cmd );
 	        if (cmd == '0') {
 	            displaying = 0;
 	        } else if (cmd == '1' ) {
