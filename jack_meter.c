@@ -97,7 +97,7 @@ static int process_peak(jack_nframes_t nframes, void *arg)
             for (i = 0; i < nframes; i++) {
                 const float s = fabs(in[i]);
                 if (s > channel_info[channel].peak) {
-                    printf( "Setting channel %d peak %f", channel, s );
+                    printf( "Setting channel %d peak %f\n", channel, s );
                     channel_info[channel].peak = s;
                 }
             }
@@ -217,6 +217,7 @@ void write_buffer_to_lcd( int len ) {
 }
 void display_meter( unsigned int channel, int db )
 {
+    printf( "Processing db=%d for channel %d", db, channel );
 	int size = iec_scale( db, CONSOLE_WIDTH );
     if (size > channel_info[channel].dpeak) {
         channel_info[channel].dpeak = size;
@@ -224,6 +225,8 @@ void display_meter( unsigned int channel, int db )
     } else if (channel_info[channel].dtime++ > decay_len) {
         channel_info[channel].dpeak = size;
     }
+    printf( "display_buffer=%p\ndisplay_text=%p\ndisplay_row=%p\n", display_buffer, display_text, display_row );
+
 
     memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char));
     memset( display_text, meter_char, size*sizeof(char) );
