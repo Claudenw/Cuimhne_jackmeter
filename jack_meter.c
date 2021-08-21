@@ -94,16 +94,16 @@ static int process_peak(jack_nframes_t nframes, void *arg)
 
         /* just incase the port isn't registered yet */
         if (channel_info[channel].input_port == NULL) {
-            break;
-        }
-
-
-        /* get the audio samples, and find the peak sample */
-        in = (jack_default_audio_sample_t *) jack_port_get_buffer(channel_info[channel].input_port, nframes);
-        for (i = 0; i < nframes; i++) {
-            const float s = fabs(in[i]);
-            if (s > channel_info[channel].peak) {
-                channel_info[channel].peak = s;
+            printf( "Channel %d is not registered", channel);
+        } else {
+            /* get the audio samples, and find the peak sample */
+            in = (jack_default_audio_sample_t *) jack_port_get_buffer(channel_info[channel].input_port, nframes);
+            for (i = 0; i < nframes; i++) {
+                const float s = fabs(in[i]);
+                if (s > channel_info[channel].peak) {
+                    printf( "Setting channel %d peak %f", channel, s );
+                    channel_info[channel].peak = s;
+                }
             }
         }
 	}
@@ -231,7 +231,7 @@ void display_meter( unsigned int channel, int db )
     memset( display_text, meter_char, size*sizeof(char) );
     *display_row = (char)'3'+channel;
     display_text[channel_info[channel].dpeak]=peak_char;
-    printf( "%s\n", display_text );
+    printf( "Disp: %s\n", display_text );
     // write the line
     write_buffer_to_lcd( DISPLAY_WIDTH );
 }
@@ -397,7 +397,7 @@ int main(int argc, char *argv[])
 
 	while (running) {
 
-	    printf( "update display\n");
+	    printf( "update %d displays\n", channels );
 	    for  (channel = 0; channel < channels; channels++ )
 	    {
             float db = 20.0f * log10f(read_peak(channel) * bias);
