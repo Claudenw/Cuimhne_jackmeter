@@ -30,6 +30,7 @@
 #include <math.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -53,6 +54,10 @@ jack_options_t options = JackNoStartServer;
 
 int xrun_count = 0;
 
+#define DEFAULT_FIFO_NAME "/run/jack_meter"
+FILE *fifo = NULL;
+
+int displaying = 0;
 char* lcd_device = NULL;
 char peak_char='I';
 char meter_char='#';
@@ -314,7 +319,7 @@ char parse_char( char * s ) {
             return s[0];
         }
         if (len != 4 ) {
-            debug(2, "Exactly 2 hex characters must be provided in the form 0xNN for an escaped character (%s)\n", s );
+            debug(2, "Exactly 2 hex characters must be provided in the form 0xNN for an escaped character (%s provided)\n", s );
             return s[0];
         } else {
             unsigned n;
@@ -324,6 +329,16 @@ char parse_char( char * s ) {
         }
     }
     return s[0];
+}
+
+FILE* make_fifo( const char * name ) {
+    if (access( name, F_OK ) == 0 ) {
+        remove( name );
+    }
+    umask( 0 );
+    mkfifo( name, 0666);
+    int fd1 = open( name, O_RDONLY | O_NONBLOCK );
+    return fdopen( fd1, "r" );
 }
 
 int main(int argc, char *argv[])
@@ -386,6 +401,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (!fifo) {
+	    fifo = make_fifo( DEFAULT_FIFO_NAME );
+	}
 	// ensure we have a device
 	if (!lcd_device) {
         lcd_device = copy_malloc( DEFAULT_DEVICE );
@@ -451,6 +469,19 @@ int main(int argc, char *argv[])
 	struct channel_info_t *info;
 	while (running) {
 
+	    // check for state change
+	    if (!feof(fifo)) {
+	        char cmd = fgetc( fifo );
+	        debug( 3, "Received command %c", cmd );
+	        if (cmd == '0') {
+	            displaying = 0;
+	        } else if (cmd == '1' ) {
+	            displaying = 1;
+	        } else if (cmd == 'x' ) {
+	            running=0;
+	            break;
+	        }
+	    }
 	    debug( 4, "update %d displays\n", channels );
 	    for  (channel = 0; channel < channels; channel++ )
 	    {
@@ -458,11 +489,13 @@ int main(int argc, char *argv[])
 	        info->last_peak = info->peak;
 	        channel_info[channel].peak = 0.0f;
 	        info->db = 20.0f * log10f(info->last_peak * bias);
-            if (decibels_mode==1) {
-                display_db( info );
-            } else {
-                display_meter( info );
-            }
+	        if (displaying) {
+                if (decibels_mode==1) {
+                    display_db( info );
+                } else {
+                    display_meter( info );
+                }
+	        }
 	    }
         fsleep( 1.0f/rate );
         debug( 4, "WOKE UP\n" );
