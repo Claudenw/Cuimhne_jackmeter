@@ -1,4 +1,8 @@
 /*
+    jack_meter.c
+    LCD display based Digital Peak Meter for JACK on Cuimhne Ceoil
+    Copyright (C) 2021 Claude Warren
+    Based on
 
 	jackmeter.c
 	Simple console based Digital Peak Meter for JACK
@@ -26,6 +30,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include <jack/jack.h>
 #include <getopt.h>
@@ -33,22 +38,43 @@
 
 
 float bias = 1.0f;
-float peak = 0.0f;
+//float peak = 0.0f;
 
-int dpeak = 0;
-int dtime = 0;
+//int dpeak = 0;
+//int dtime = 0;
 int decay_len;
 char *server_name = NULL;
-jack_port_t *input_port = NULL;
+
 jack_client_t *client = NULL;
 jack_options_t options = JackNoStartServer;
 
+/* constants for lcd access */
+#define DEFAULT_DEVICE "/dev/lcd0"
+#define CONSOLE_WIDTH 20
+#define DISPLAY_WIDTH (CONSOLE_WIDTH+6)
+char display_buffer[ DISPLAY_WIDTH ];
+int xrun_count = 0;
+char* display_row = NULL;
+char* display_text = NULL;
+char* lcd_device = NULL;
+int lcd;
+
+/* struct to handle 2 different displays (channels)*/
+#define MAX_CHANNELS 2
+unsigned int channels = 0;
+struct channel_t {
+    int dpeak = 0;
+    int dtime = 0;
+    float peak = 0.0f;
+    jack_port_t *input_port = NULL;
+} channel_info[MAX_CHANNELS];
+
 
 /* Read and reset the recent peak sample */
-static float read_peak()
+static float read_peak(int channel)
 {
-	float tmp = peak;
-	peak = 0.0f;
+	float tmp = channel_info[channel].peak;
+	channel_info[channel].peak = 0.0f;
 
 	return tmp;
 }
@@ -59,24 +85,26 @@ static float read_peak()
 static int process_peak(jack_nframes_t nframes, void *arg)
 {
 	jack_default_audio_sample_t *in;
+	unsigned int channel;
 	unsigned int i;
 
+	for (channel = 0; channel < channels; channel++) {
 
-	/* just incase the port isn't registered yet */
-	if (input_port == NULL) {
-		return 0;
+        /* just incase the port isn't registered yet */
+        if (channel_info[channel].input_port == NULL) {
+            break;
+        }
+
+
+        /* get the audio samples, and find the peak sample */
+        in = (jack_default_audio_sample_t *) jack_port_get_buffer(channel_info[channel].input_port, nframes);
+        for (i = 0; i < nframes; i++) {
+            const float s = fabs(in[i]);
+            if (s > channel_info[channel].peak) {
+                channel_info[channel].peak = s;
+            }
+        }
 	}
-
-
-	/* get the audio samples, and find the peak sample */
-	in = (jack_default_audio_sample_t *) jack_port_get_buffer(input_port, nframes);
-	for (i = 0; i < nframes; i++) {
-		const float s = fabs(in[i]);
-		if (s > peak) {
-			peak = s;
-		}
-	}
-
 
 	return 0;
 }
@@ -116,17 +144,18 @@ static void cleanup()
 {
 	const char **all_ports;
 	unsigned int i;
-
+	unsigned int channel;
 	fprintf(stderr,"cleanup()\n");
 
-	if (input_port != NULL ) {
+	for (channel = 0; channel < MAX_CHANNELS; channel++) {
+        if (channel_info[channel].input_port != NULL ) {
 
-		all_ports = jack_port_get_all_connections(client, input_port);
+            all_ports = jack_port_get_all_connections(client, channel_info[channel].input_port);
 
-		for (i=0; all_ports && all_ports[i]; i++) {
-			jack_disconnect(client, all_ports[i], jack_port_name(input_port));
-		}
-	}
+            for (i=0; all_ports && all_ports[i]; i++) {
+                jack_disconnect(client, all_ports[i], jack_port_name(channel_info[channel].input_port));
+            }
+        }
 
 	/* Leave the jack graph */
 	jack_client_close(client);
@@ -135,7 +164,7 @@ static void cleanup()
 
 
 /* Connect the chosen port to ours */
-static void connect_port(jack_client_t *client, char *port_name)
+static void connect_port(jack_client_t *client, char *port_name, unsigned int channel)
 {
 	jack_port_t *port;
 
@@ -147,9 +176,9 @@ static void connect_port(jack_client_t *client, char *port_name)
 	}
 
 	// Connect the port to our input port
-	fprintf(stderr,"Connecting '%s' to '%s'...\n", jack_port_name(port), jack_port_name(input_port));
-	if (jack_connect(client, jack_port_name(port), jack_port_name(input_port))) {
-		fprintf(stderr, "Cannot connect port '%s' to '%s'\n", jack_port_name(port), jack_port_name(input_port));
+	fprintf(stderr,"Connecting '%s' to '%s'...\n", jack_port_name(port), jack_port_name(channel_info[channel].input_port));
+	if (jack_connect(client, jack_port_name(port), jack_port_name(channel_info[channel].input_port))) {
+		fprintf(stderr, "Cannot connect port '%s' to '%s'\n", jack_port_name(port), jack_port_name(channel_info[channel].input_port));
 		exit(1);
 	}
 }
@@ -171,8 +200,8 @@ static int usage( const char * progname )
 	fprintf(stderr, "jackmeter version %s\n\n", VERSION);
 	fprintf(stderr, "Usage %s [-f freqency] [-r ref-level] [-w width] [-s servername] [-n] [<port>, ...]\n\n", progname);
 	fprintf(stderr, "where  -f      is how often to update the meter per second [8]\n");
+	fprintf(stderr, "       -l      is the lcd to use (default /dev/lcd0)\n");
 	fprintf(stderr, "       -r      is the reference signal level for 0dB on the meter\n");
-	fprintf(stderr, "       -w      is how wide to make the meter [79]\n");
 	fprintf(stderr, "       -s      is the [optional] name given the jack server when it was started\n");
 	fprintf(stderr, "       -n      changes mode to output meter level as number in decibels\n");
 	fprintf(stderr, "       <port>  the port(s) to monitor (multiple ports are mixed)\n");
@@ -180,85 +209,83 @@ static int usage( const char * progname )
 }
 
 
-void display_scale( int width )
+void display_meter( unsigned int channel, int db )
 {
-	int i=0;
-	const int marks[11] = { 0, -5, -10, -15, -20, -25, -30, -35, -40, -50, -60 };
-	char *scale = malloc( width+1 );
-	char *line = malloc( width+1 );
-	
-	
-	// Initialise the scale
-	for(i=0; i<width; i++) { scale[i] = ' '; line[i]='_'; }
-	scale[width] = 0;
-	line[width] = 0;
-	
-	
-	// 'draw' on each of the db marks
-	for(i=0; i < 11; i++) {
-		char mark[5];
-		int pos = iec_scale( marks[i], width )-1;
-		int spos, slen;
-		
-		// Create string of the db value
-		snprintf(mark, 4, "%d", marks[i]);
-		
-		// Position the label string
-		slen = strlen(mark);
-		spos = pos-(slen/2);
-		if (spos<0) spos=0;
-		if (spos+strlen(mark)>width) spos=width-slen;
-		memcpy( scale+spos, mark, slen );
-		
-		// Position little marker
-		line[pos] = '|';
-	}
-	
-	// Print it to screen
-	printf("%s\n", scale);
-	printf("%s\n", line);
-	free(scale);
-	free(line);
+	int size = iec_scale( db, CONSOLE_WIDTH );
+    if (size > channel_info[channel].dpeak) {
+        channel_info[channel].dpeak = size;
+        channel_info[channel].dtime = 0;
+    } else if (channel_info[channel].dtime++ > decay_len) {
+        channel_info[channel].dpeak = size;
+    }
+
+    memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char))
+    memset( display_text, '#', size*sizeof(char) );
+    *display_row = '3'+channel;
+    display_text[[channel_info[channel].dpeak]="I";
+
+    // write the line
+    write( lcd, display_buffer, DISPLAY_WIDTH*sizeof(char) );
 }
 
-
-void display_meter( int db, int width )
+void display_db( unsigned int channel, float db )
 {
-	int size = iec_scale( db, width );
-	int i;
-	
-	if (size > dpeak) {
-		dpeak = size;
-		dtime = 0;
-	} else if (dtime++ > decay_len) {
-		dpeak = size;
-	}
-	
-	printf("\r");
-	
-	for(i=0; i<size-1; i++) { printf("#"); }
-	
-	if (dpeak==size) {
-		printf("I");
-	} else {
-		printf("#");
-		for(i=0; i<dpeak-size-1; i++) { printf(" "); }
-		printf("I");
-	}
-	
-	for(i=0; i<width-dpeak; i++) { printf(" "); }
+    memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char))
+    int size = sprintf( display_text, "%1.1f", db);
+    display_text[size] = ' '
+    *display_row = '3'+channel;
+    // write the line
+    write( lcd, display_buffer, DISPLAY_WIDTH*sizeof(char) );
 }
 
+static void  increment_xrun(void *arg) {
+    xrun_count++;
+    memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char) );
+    int size = sprintf( display_text, "Xrun: %d", xrun_count);
+    display_text[size] = ' ';
+    *display_row = '2';
+    write( lcd, display_buffer, DISPLAY_WIDTH*sizeof(char) );
+}
+
+void initialise_display() {
+
+    // clear lines 2, 3, and 4t
+    memset( display_buffer, 0, DISPLAY_WIDTH*sizeof(char) );
+    int size = sprintf( display_buffer, "%c[2;0H%c[0J", (char)0x1b, (char)0x1b );
+    write( lcd, display_buffer, size*sizeof(char) );
+
+
+    // set the standard prefix for the display
+    display_buffer[0] = (char)0x1b;
+    display_buffer[1] ='[';
+    display_buffer[2] = '3';
+    display_buffer[3] = ';';
+    display_buffer[4] = '0';
+    display_buffer[5] = 'H';
+    display_row = &display_buffer[2];
+    display_text = &display_buffer[6];
+
+    // display the xrun
+    xrun_count = -1;
+    increment_xrun();
+
+}
 
 int main(int argc, char *argv[])
 {
-	int console_width = 79;
+
 	jack_status_t status;
 	int running = 1;
 	float ref_lev;
 	int decibels_mode = 0;
 	int rate = 8;
 	int opt;
+
+	// ensure the entire display buffer has been cleared
+	initialize_display();
+
+	// clear channel info
+	memset( channel_info, 0, (MAX_CHANNELS)*sizeof(struct channel_t));
 
 	// Make STDOUT unbuffered
 	setbuf(stdout, NULL);
@@ -270,6 +297,10 @@ int main(int argc, char *argv[])
             			strcpy (server_name, optarg);
 				options |= JackServerName;
 				break;
+			case 'l':
+			    lcd_device = (char *) malloc (sizeof (char) * strlen(optarg));
+                strcpy (lcd_device, optarg);
+                break;
 			case 'r':
 				ref_lev = atof(optarg);
 				fprintf(stderr,"Reference level: %.1fdB\n", ref_lev);
@@ -278,10 +309,6 @@ int main(int argc, char *argv[])
 			case 'f':
 				rate = atoi(optarg);
 				fprintf(stderr,"Updates per second: %d\n", rate);
-				break;
-			case 'w':
-				console_width = atoi(optarg);
-				fprintf(stderr,"Console Width: %d\n", console_width);
 				break;
 			case 'n':
 				decibels_mode = 1;
@@ -295,6 +322,14 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	// ensure we have a device
+	if (!lcd_device) {
+        lcd_device = (char *) malloc (sizeof (char) * strlen(DEFAULT_DEVICE));
+        strcpy (lcd_device, DEFAULT_DEVICE);
+	}
+	fprintf( "Using LCD %s\n", lcd_device );
+	lcd = open( lcd_device, O_WRONLY);
+	fprintf( "LCD %s opened as %d\n", lcd_device, lcd );
 
 
 	// Register with Jack
@@ -305,14 +340,22 @@ int main(int argc, char *argv[])
 	fprintf(stderr,"Registering as '%s'.\n", jack_get_client_name( client ) );
 
 	// Create our input port
-	if (!(input_port = jack_port_register(client, "in", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0))) {
-		fprintf(stderr, "Cannot register input port 'meter'.\n");
-		exit(1);
+	for (channel = 0; channel < MAX_CHANNELS; channel++)
+	{
+	    char port_name[10];
+	    sprintf( port_name, "in%d", channel );
+
+        if (!(channel_info[channel].input_port = jack_port_register(client, port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0))) {
+            fprintf(stderr, "Cannot register input port 'meter:%s'.\n", port_name );
+            exit(1);
+        }
 	}
 	
 	// Register the cleanup function to be called when program exits
 	atexit( cleanup );
 
+	// register the xrun callback
+	jack_set_xrun_callback( client, increment_xrun, 0 );
 	// Register the peak signal callback
 	jack_set_process_callback(client, process_peak, 0);
 
@@ -325,9 +368,12 @@ int main(int argc, char *argv[])
 
 	// Connect our port to specified port(s)
 	if (argc > optind) {
-		while (argc > optind) {
-			connect_port( client, argv[ optind ] );
+
+	    channels=0;
+		while (argc > optind && channel<MAX_CHANNELS) {
+			connect_port( client, argv[ optind ], channels );
 			optind++;
+			channels++;
 		}
 	} else {
 		fprintf(stderr,"Meter is not connected to a port.\n");
@@ -336,22 +382,20 @@ int main(int argc, char *argv[])
 	// Calculate the decay length (should be 1600ms)
 	decay_len = (int)(1.6f / (1.0f/rate));
 	
-
-	// Display the scale
-	if (decibels_mode==0) {
-		display_scale( console_width );
-	}
-
+	unsigned int channel;
 	while (running) {
-		float db = 20.0f * log10f(read_peak() * bias);
-		
-		if (decibels_mode==1) {
-			printf("%1.1f\n", db);
-		} else {
-			display_meter( db, console_width );
-		}
-		
-		fsleep( 1.0f/rate );
+
+	    for  (channel = 0; channel < channels; channels++ )
+	    {
+            float db = 20.0f * log10f(read_peak(channel) * bias);
+
+            if (decibels_mode==1) {
+                display_db( channel, db );
+            } else {
+                display_meter( channel, db );
+            }
+	    }
+        fsleep( 1.0f/rate );
 	}
 
 	return 0;
