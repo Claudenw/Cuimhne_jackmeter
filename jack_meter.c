@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <math.h>
 #include <string.h>
 #include <sys/types.h>
@@ -57,26 +58,34 @@ char peak_char='I';
 char meter_char='#';
 int lcd;
 
-/* struct to handle 2 different displays (channels)*/
+/*
+ * CHANNEL HANDLING
+ */
 #define MAX_CHANNELS 2
 unsigned int channels = MAX_CHANNELS;
-struct channel_t {
+struct channel_info_t {
+    int channel;
     int dpeak;
     int dtime;
     float peak;
+    float last_peak;
+    float db;
     jack_port_t *input_port;
 } channel_info[MAX_CHANNELS];
 
+/* DEBUG */
 
-/* Read and reset the recent peak sample */
-static float read_peak(int channel)
+static unsigned int debug_level = 3;
+
+static void debug( unsigned int level, const char *fmt, ...)
 {
-	float tmp = channel_info[channel].peak;
-	channel_info[channel].peak = 0.0f;
-
-	return tmp;
+    va_list argp;
+    if (level <= debug_level) {
+        va_start(argp, fmt);
+        vfprintf(stderr,fmt,argp);
+        va_end(argp);
+    }
 }
-
 
 /* Callback called by JACK when audio is available.
    Stores value of peak sample */
@@ -85,20 +94,20 @@ static int process_peak(jack_nframes_t nframes, void *arg)
 	jack_default_audio_sample_t *in;
 	unsigned int channel;
 	unsigned int i;
-
+	struct channel_info_t *info;
 	for (channel = 0; channel < channels; channel++) {
-
+	    info = &channel_info[channel];
         /* just incase the port isn't registered yet */
-        if (channel_info[channel].input_port == NULL) {
-            printf( "Channel %d is not registered", channel);
+        if (info->input_port == NULL) {
+            debug(2, "Channel %d ls\n", channel);
         } else {
             /* get the audio samples, and find the peak sample */
-            in = (jack_default_audio_sample_t *) jack_port_get_buffer(channel_info[channel].input_port, nframes);
+            in = (jack_default_audio_sample_t *) jack_port_get_buffer(info->input_port, nframes);
             for (i = 0; i < nframes; i++) {
                 const float s = fabs(in[i]);
-                if (s > channel_info[channel].peak) {
-                    printf( "Setting channel %d peak %f\n", channel, s );
-                    channel_info[channel].peak = s;
+                if (s > info->peak) {
+                    debug( 4, "Setting channel %d peak %f\n", channel, s );
+                    info->peak = s;
                 }
             }
         }
@@ -143,7 +152,7 @@ static void cleanup()
 	const char **all_ports;
 	unsigned int i;
 	unsigned int channel;
-	fprintf(stderr,"cleanup()\n");
+	debug( 2, "cleanup()\n");
 
 	for (channel = 0; channel < MAX_CHANNELS; channel++) {
         if (channel_info[channel].input_port != NULL ) {
@@ -169,15 +178,15 @@ static void connect_port(jack_client_t *client, char *port_name, unsigned int ch
 	// Get the port we are connecting to
 	port = jack_port_by_name(client, port_name);
 	if (port == NULL) {
-		fprintf(stderr, "Can't find port '%s'\n", port_name);
+		debug( 1, "Can't find port '%s'\n", port_name);
 		exit(1);
 	}
-
-	printf( "Connecting %s to channel %d\n", port_name, channel );
+	const char* fq_port_name = jack_port_name(port);
+	const char* fq_channel_name = jack_port_name(channel_info[channel].input_port);
 	// Connect the port to our input port
-	fprintf(stderr,"Connecting '%s' to '%s'...\n", jack_port_name(port), jack_port_name(channel_info[channel].input_port));
-	if (jack_connect(client, jack_port_name(port), jack_port_name(channel_info[channel].input_port))) {
-		fprintf(stderr, "Cannot connect port '%s' to '%s'\n", jack_port_name(port), jack_port_name(channel_info[channel].input_port));
+	debug( 4, "Connecting '%s' to '%s' on channel %d\n", fq_port_name, fq_channel_name, channel );
+	if (jack_connect(client, fq_port_name, fq_channel_name)) {
+		debug( 1, "Cannot connect '%s' to '%s' on channel %d\n", fq_port_name, fq_channel_name, channel);
 		exit(1);
 	}
 }
@@ -199,6 +208,7 @@ static int usage( const char * progname )
 	fprintf(stderr, "jackmeter version %s\n\n", VERSION);
 	fprintf(stderr, "Usage %s [-f freqency] [-r ref-level] [-w width] [-s servername] [-n] [<port>, ...]\n\n", progname);
 	fprintf(stderr, "where  -f      is how often to update the meter per second [8]\n");
+	fprintf(stderr, "       -d      is the debug level (0 = silent, 1=fatal, 2=error, 3=info, 4=debug, 5=trace)\n");
 	fprintf(stderr, "       -l      is the lcd to use (default /dev/lcd0)\n");
 	fprintf(stderr, "       -r      is the reference signal level for 0dB on the meter\n");
 	fprintf(stderr, "       -s      is the [optional] name given the jack server when it was started\n");
@@ -210,12 +220,12 @@ static int usage( const char * progname )
 
 void write_buffer_to_lcd( const char * const display_buffer, int len ) {
     int expected = len*sizeof(char);
-    fprintf( stderr, "LCD: %d (%d)characters\n", len, expected );
+    debug( 4, "LCD: %d (%d) characters\n", len, expected );
     int written = write( lcd, display_buffer, expected );
     if (written != expected ) {
-        fprintf( stderr, "*** only wrote %d of %d bytes\n", written, expected);
+        debug( 2, "*** only wrote %d of %d bytes\n", written, expected);
     }
-    fprintf( stderr, "LCD: written %d\n", written );
+    debug( 4, "LCD: written %d\n", written );
 }
 
 char* configure_buffer( char* display_buffer, char row ) {
@@ -229,43 +239,45 @@ char* configure_buffer( char* display_buffer, char row ) {
     return &display_buffer[6];
 }
 
-void display_meter( unsigned int channel, int db )
+void display_meter( struct channel_info_t *info )
 {
     char display_buffer[DISPLAY_WIDTH];
-    char* display_text = configure_buffer( display_buffer, '3'+channel );
-    fprintf( stderr, "Processing db=%d for channel %d\n", db, channel );
-	int size = iec_scale( db, CONSOLE_WIDTH );
-	fprintf( stderr, "size %d\n", size );
-	    if (size > channel_info[channel].dpeak) {
-        channel_info[channel].dpeak = size;
-        channel_info[channel].dtime = 0;
-    } else if (channel_info[channel].dtime++ > decay_len) {
-        channel_info[channel].dpeak = size;
+    char* display_text = configure_buffer( display_buffer, '3'+info->channel );
+    debug( 4, "Processing db=%d for channel %d\n", info->db, info->channel );
+	int size = iec_scale( info->db, CONSOLE_WIDTH );
+	debug(4, "size %d\n", size );
+	    if (size > info->dpeak) {
+	        info->dpeak = size;
+	        info->dtime = 0;
+    } else if (info->dtime++ > decay_len) {
+        info->dpeak = size;
     }
-    fprintf( stderr, "display_buffer=%p\ndisplay_text=%p\ndpeak=%i\nsize=%i\n", display_buffer, display_text, channel_info[channel].dpeak, size );
+    debug( 5, "display_buffer=%p\ndisplay_text=%p\ndpeak=%i\nsize=%i\n", display_buffer, display_text, info->dpeak, size );
 
     memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char));
     memset( display_text, meter_char, size*sizeof(char) );
-    display_text[channel_info[channel].dpeak]=peak_char;
+    display_text[info->dpeak]=peak_char;
 
-    fprintf( stderr, "Disp: %s\n", display_text );
+    debug( 5, "Disp: %s\n", display_text );
     // write the line
     write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
 }
 
-void display_db( unsigned int channel, float db )
+void display_db( struct channel_info_t const *info )
 {
+    debug( 4, "Processing db=%d for channel %d\n", info->db, info->channel );
     char display_buffer[DISPLAY_WIDTH];
-    char* display_text = configure_buffer( display_buffer, '3'+channel );
+    char* display_text = configure_buffer( display_buffer, '3'+info->channel );
     memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char));
-    int size = sprintf( display_text, "%1.1f", db);
-    display_text[size] = ' ';
+    sprintf( display_text, "%1.1f", info->db);
+
+    debug( 5, "Disp: %s\n", display_text );
     // write the line
     write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
 }
 
 static int  increment_xrun(void *arg) {
-    fprintf( stderr, "XRUN\n" );
+    debug( 2, "XRUN\n" );
     char display_buffer[DISPLAY_WIDTH];
     char* display_text = configure_buffer( display_buffer, '2' );
     xrun_count++;
@@ -303,14 +315,17 @@ int main(int argc, char *argv[])
 	int opt;
 
 	// clear channel info
-	memset( channel_info, 0, (MAX_CHANNELS)*sizeof(struct channel_t));
+	memset( channel_info, 0, (MAX_CHANNELS)*sizeof(struct channel_info_t));
 
 	// Make STDOUT unbuffered
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
-	while ((opt = getopt(argc, argv, "s:f:r:l:nhv")) != -1) {
+	while ((opt = getopt(argc, argv, "d:s:f:r:l:nhv")) != -1) {
 		switch (opt) {
+		    case 'd':
+		        debug_level = atoi(optarg);
+		        break;
 			case 's':
 				server_name = copy_malloc( optarg );
 				options |= JackServerName;
@@ -320,12 +335,12 @@ int main(int argc, char *argv[])
                 break;
 			case 'r':
 				ref_lev = atof(optarg);
-				fprintf(stderr,"Reference level: %.1fdB\n", ref_lev);
+				debug( 3, "Reference level: %.1fdB\n", ref_lev);
 				bias = powf(10.0f, ref_lev * -0.05f);
 				break;
 			case 'f':
 				rate = atoi(optarg);
-				fprintf(stderr,"Updates per second: %d\n", rate);
+				debug( 3,"Updates per second: %d\n", rate);
 				break;
 			case 'n':
 				decibels_mode = 1;
@@ -343,19 +358,19 @@ int main(int argc, char *argv[])
 	if (!lcd_device) {
         lcd_device = copy_malloc( DEFAULT_DEVICE );
 	}
-	fprintf(stderr, "Using LCD %s\n", lcd_device );
+	debug( 3, "Using LCD %s\n", lcd_device );
 	lcd = open( lcd_device, O_WRONLY);
-	fprintf(stderr, "LCD %s opened as %d\n", lcd_device, lcd );
+	debug( 3, "LCD %s opened as %d\n", lcd_device, lcd );
 
     // ensure the entire display buffer has been cleared
     initialise_display();
 
 	// Register with Jack
 	if ((client = jack_client_open("meter", options, &status, server_name)) == 0) {
-		fprintf(stderr, "Failed to start jack client: %d\n", status);
+		debug( 1, "Failed to start jack client: %d\n", status);
 		exit(1);
 	}
-	fprintf(stderr,"Registering as '%s'.\n", jack_get_client_name( client ) );
+	debug( 3,"Registering as '%s'.\n", jack_get_client_name( client ) );
 
 	// Create our input ports
 	unsigned int channel;
@@ -363,9 +378,9 @@ int main(int argc, char *argv[])
 	{
 	    char port_name[10];
 	    sprintf( port_name, "in%d", channel );
-	    fprintf(stderr,"Registering port '%s' on channel %d.\n", port_name, channel );
+	    debug( 4, "Registering port '%s' on channel %d.\n", port_name, channel );
         if (!(channel_info[channel].input_port = jack_port_register(client, port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0))) {
-            fprintf(stderr, "Cannot register input port 'meter:%s'.\n", port_name );
+            debug( 1, "Cannot register input port 'meter:%s'.\n", port_name );
             exit(1);
         }
 	}
@@ -379,7 +394,7 @@ int main(int argc, char *argv[])
 	jack_set_process_callback(client, process_peak, 0);
 
 	if (jack_activate(client)) {
-		fprintf(stderr, "Cannot activate client.\n");
+		debug( 1, "Cannot activate client.\n");
 		exit(1);
 	}
 
@@ -391,30 +406,34 @@ int main(int argc, char *argv[])
 		while (argc > optind && channels<MAX_CHANNELS) {
 			connect_port( client, argv[ optind ], channels );
 			optind++;
+			channel_info[channels].channel = channels;
 			channels++;
 		}
 	} else {
-		fprintf(stderr,"Meter is not connected to a port.\n");
+		debug( 2, "Meter is not connected to a port.\n");
 	}
 
 	// Calculate the decay length (should be 1600ms)
 	decay_len = (int)(1.6f / (1.0f/rate));
 
+	struct channel_info_t *info;
 	while (running) {
 
-	    fprintf( stderr, "update %d displays\n", channels );
-	    for  (channel = 0; channel < channels; channels++ )
+	    debug( 4, "update %d displays\n", channels );
+	    for  (channel = 0; channel < channels; channel++ )
 	    {
-            float db = 20.0f * log10f(read_peak(channel) * bias);
-
+	        info = &channel_info[channel];
+	        info->last_peak = info->peak;
+	        channel_info[channel].peak = 0.0f;
+	        info->db = 20.0f * log10f(info->last_peak * bias);
             if (decibels_mode==1) {
-                display_db( channel, db );
+                display_db( info );
             } else {
-                display_meter( channel, db );
+                display_meter( info );
             }
 	    }
         fsleep( 1.0f/rate );
-        fprintf( stderr, "WOKE UP\n" );
+        debug( 4, "WOKE UP\n" );
 	}
 
 	return 0;
