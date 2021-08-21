@@ -498,6 +498,8 @@ int main(int argc, char *argv[])
 	            running=0;
 	            break;
 	        }
+	    } else {
+	        debug( 3, "Received EOF %c (0x%x)\n", cmd, cmd );
 	    }
 
 	    debug( 4, "update %d displays\n", channels );
