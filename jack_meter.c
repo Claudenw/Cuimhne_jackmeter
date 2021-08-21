@@ -231,7 +231,7 @@ void display_meter( unsigned int channel, int db )
     memset( display_text, meter_char, size*sizeof(char) );
     *display_row = (char)'3'+channel;
     display_text[channel_info[channel].dpeak]=peak_char;
-
+    printf( "%s\n", display_text );
     // write the line
     write_buffer_to_lcd( DISPLAY_WIDTH );
 }
@@ -397,6 +397,7 @@ int main(int argc, char *argv[])
 
 	while (running) {
 
+	    printf( "update display\n");
 	    for  (channel = 0; channel < channels; channels++ )
 	    {
             float db = 20.0f * log10f(read_peak(channel) * bias);
