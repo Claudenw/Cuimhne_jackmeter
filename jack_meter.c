@@ -482,9 +482,12 @@ int main(int argc, char *argv[])
 	while (running) {
 
 	    // check for state change
-
+	    clearerr(fifo);
 	    cmd = fgetc( fifo );
-	    if ( cmd != EOF ) {
+	    int err = ferror(fifo);
+	    if (err) {
+	        debug( 3, "Read error on fifo: %d", err );
+	    } else {
 	        debug( 3, "Received command %c (0x%x)\n", cmd, cmd );
 	        int err = ferror(fifo);
 	                if (err) {
@@ -498,8 +501,6 @@ int main(int argc, char *argv[])
 	            running=0;
 	            break;
 	        }
-	    } else {
-	        debug( 3, "Received EOF %c (0x%x)\n", cmd, cmd );
 	    }
 
 	    debug( 4, "update %d displays\n", channels );
