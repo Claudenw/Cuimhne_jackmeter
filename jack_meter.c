@@ -218,7 +218,7 @@ static int usage( const char * progname )
 	fprintf(stderr, "       -r      is the reference signal level for 0dB on the meter\n");
 	fprintf(stderr, "       -s      is the [optional] name given the jack server when it was started\n");
 	fprintf(stderr, "       -n      changes mode to output meter level as number in decibels\n");
-	fprintf(stderr, "       -c      number of channels to monitor\n");
+	fprintf(stderr, "       -c      the name of the fifo (default /run/jack_meter)\n");
 	fprintf(stderr, "       <port>  the port(s) to monitor (multiple ports are mixed)\n");
 	exit(1);
 }
@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
 	setbuf(stdout, NULL);
 	setbuf(stderr, NULL);
 
-	while ((opt = getopt(argc, argv, "d:p:m:s:f:r:l:nhv")) != -1) {
+	while ((opt = getopt(argc, argv, "d:p:m:s:f:r:l:c:nhv")) != -1) {
 		switch (opt) {
 		    case 'p':
 		        peak_char = parse_char( optarg );
@@ -392,6 +392,9 @@ int main(int argc, char *argv[])
 			case 'n':
 				decibels_mode = 1;
 				break;
+			case 'c':
+			    fifo = make_fifo( optarg );
+			    break;
 			case 'h':
 			case 'v':
 			default:
