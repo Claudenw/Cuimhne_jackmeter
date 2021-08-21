@@ -304,6 +304,10 @@ char* copy_malloc( char* s ) {
     return strcpy ((char *) malloc (sizeof (char) * (strlen(s)+1)), s);
 }
 
+char parse_char( char * s ) {
+    char c = 0x00;
+}
+
 int main(int argc, char *argv[])
 {
     jack_status_t status;
@@ -323,11 +327,11 @@ int main(int argc, char *argv[])
 	while ((opt = getopt(argc, argv, "d:p:m:s:f:r:l:nhv")) != -1) {
 		switch (opt) {
 		    case 'p':
-		        peak_char = (char)atoi( optarg );
+		        peak_char = (char)optarg[0];
                 debug( 3, "Setting peak char %x\n", peak_char);
 		        break;
 		    case 'm':
-		        meter_char = (char)atoi( optarg );
+		        meter_char = optarg[0];
 		        debug( 3, "Setting meter char %x\n", meter_char);
 		        break;
 		    case 'd':
