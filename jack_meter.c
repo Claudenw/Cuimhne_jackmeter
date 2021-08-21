@@ -210,29 +210,33 @@ static int usage( const char * progname )
 
 void write_buffer_to_lcd( int len ) {
     int expected = len*sizeof(char);
+    fprintf( stderr, "LCD: %d (%d)characters\n", len, expected );
     int written = write( lcd, display_buffer, expected );
     if (written != expected ) {
         fprintf( stderr, "*** only wrote %d of %d bytes\n", written, expected);
     }
+    fprintf( stderr, "LCD: written %d\n", written );
 }
+
 void display_meter( unsigned int channel, int db )
 {
-    printf( "Processing db=%d for channel %d", db, channel );
+    fprintf( stderr, "Processing db=%d for channel %d\n", db, channel );
 	int size = iec_scale( db, CONSOLE_WIDTH );
-    if (size > channel_info[channel].dpeak) {
+	fprintf( stderr, "size %d\n", size );
+	    if (size > channel_info[channel].dpeak) {
         channel_info[channel].dpeak = size;
         channel_info[channel].dtime = 0;
     } else if (channel_info[channel].dtime++ > decay_len) {
         channel_info[channel].dpeak = size;
     }
-    printf( "display_buffer=%p\ndisplay_text=%p\ndisplay_row=%p\n", display_buffer, display_text, display_row );
+    fprintf( stderr, "display_buffer=%p\ndisplay_text=%p\ndisplay_row=%p\n", display_buffer, display_text, display_row );
 
 
     memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char));
     memset( display_text, meter_char, size*sizeof(char) );
     *display_row = (char)'3'+channel;
     display_text[channel_info[channel].dpeak]=peak_char;
-    printf( "Disp: %s\n", display_text );
+    fprintf( stderr, "Disp: %s\n", display_text );
     // write the line
     write_buffer_to_lcd( DISPLAY_WIDTH );
 }
@@ -300,6 +304,7 @@ int main(int argc, char *argv[])
 
 	// Make STDOUT unbuffered
 	setbuf(stdout, NULL);
+	setbuf(stderr, NULL);
 
 	while ((opt = getopt(argc, argv, "s:f:r:l:nhv")) != -1) {
 		switch (opt) {
@@ -394,7 +399,7 @@ int main(int argc, char *argv[])
 
 	while (running) {
 
-	    printf( "update %d displays\n", channels );
+	    fprintf( stderr, "update %d displays\n", channels );
 	    for  (channel = 0; channel < channels; channels++ )
 	    {
             float db = 20.0f * log10f(read_peak(channel) * bias);
