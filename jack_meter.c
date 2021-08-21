@@ -478,14 +478,18 @@ int main(int argc, char *argv[])
 	decay_len = (int)(1.6f / (1.0f/rate));
 
 	struct channel_info_t *info;
-	char cmd;
+	int cmd;
 	while (running) {
 
 	    // check for state change
 
 	    cmd = fgetc( fifo );
-	    if (!feof(fifo)) {
+	    if ( cmd != EOF ) {
 	        debug( 3, "Received command %c (0x%x)\n", cmd, cmd );
+	        int err = ferror(fifo);
+	                if (err) {
+	                    debug( 3, "Read error on fifo: %d", err );
+	                }
 	        if (cmd == '0') {
 	            displaying = 0;
 	        } else if (cmd == '1' ) {
@@ -495,10 +499,7 @@ int main(int argc, char *argv[])
 	            break;
 	        }
 	    }
-	    int err = ferror(fifo);
-	    if (err) {
-	        debug( 3, "Read error on fifo: %d", err );
-	    }
+
 	    debug( 4, "update %d displays\n", channels );
 	    for  (channel = 0; channel < channels; channel++ )
 	    {
