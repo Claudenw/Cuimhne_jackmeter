@@ -57,16 +57,18 @@ int xrun_count = 0;
 char* display_row = NULL;
 char* display_text = NULL;
 char* lcd_device = NULL;
+char peak_char='I';
+char meter_char='#';
 int lcd;
 
 /* struct to handle 2 different displays (channels)*/
 #define MAX_CHANNELS 2
 unsigned int channels = 0;
 struct channel_t {
-    int dpeak = 0;
-    int dtime = 0;
-    float peak = 0.0f;
-    jack_port_t *input_port = NULL;
+    int dpeak;
+    int dtime;
+    float peak;
+    jack_port_t *input_port;
 } channel_info[MAX_CHANNELS];
 
 
@@ -156,7 +158,7 @@ static void cleanup()
                 jack_disconnect(client, all_ports[i], jack_port_name(channel_info[channel].input_port));
             }
         }
-
+	}
 	/* Leave the jack graph */
 	jack_client_close(client);
 
@@ -208,7 +210,13 @@ static int usage( const char * progname )
 	exit(1);
 }
 
-
+void write_buffer_to_lcd( int len ) {
+    int expected = len*sizeof(char);
+    int written = write( lcd, display_buffer, expected );
+    if (written != expected ) {
+        fprintf( stderr, "*** only wrote %d of %d bytes\n", written, expected);
+    }
+}
 void display_meter( unsigned int channel, int db )
 {
 	int size = iec_scale( db, CONSOLE_WIDTH );
@@ -219,32 +227,34 @@ void display_meter( unsigned int channel, int db )
         channel_info[channel].dpeak = size;
     }
 
-    memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char))
-    memset( display_text, '#', size*sizeof(char) );
-    *display_row = '3'+channel;
-    display_text[[channel_info[channel].dpeak]="I";
+    memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char));
+    memset( display_text, meter_char, size*sizeof(char) );
+    *display_row = (char)'3'+channel;
+    display_text[channel_info[channel].dpeak]=peak_char;
 
     // write the line
-    write( lcd, display_buffer, DISPLAY_WIDTH*sizeof(char) );
+    write_buffer_to_lcd( DISPLAY_WIDTH );
 }
 
 void display_db( unsigned int channel, float db )
 {
-    memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char))
+    memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char));
     int size = sprintf( display_text, "%1.1f", db);
-    display_text[size] = ' '
-    *display_row = '3'+channel;
+    display_text[size] = ' ';
+    *display_row = (char)'3'+channel;
     // write the line
-    write( lcd, display_buffer, DISPLAY_WIDTH*sizeof(char) );
+    write_buffer_to_lcd( DISPLAY_WIDTH );
 }
 
-static void  increment_xrun(void *arg) {
+static int  increment_xrun(void *arg) {
     xrun_count++;
     memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char) );
     int size = sprintf( display_text, "Xrun: %d", xrun_count);
     display_text[size] = ' ';
     *display_row = '2';
-    write( lcd, display_buffer, DISPLAY_WIDTH*sizeof(char) );
+    write_buffer_to_lcd( DISPLAY_WIDTH );
+
+    return 0;
 }
 
 void initialise_display() {
@@ -252,7 +262,7 @@ void initialise_display() {
     // clear lines 2, 3, and 4t
     memset( display_buffer, 0, DISPLAY_WIDTH*sizeof(char) );
     int size = sprintf( display_buffer, "%c[2;0H%c[0J", (char)0x1b, (char)0x1b );
-    write( lcd, display_buffer, size*sizeof(char) );
+    write_buffer_to_lcd( size );
 
 
     // set the standard prefix for the display
@@ -267,8 +277,12 @@ void initialise_display() {
 
     // display the xrun
     xrun_count = -1;
-    increment_xrun();
+    increment_xrun( NULL );
 
+}
+
+char* copy_malloc( char* s ) {
+    return strcpy ((char *) malloc (sizeof (char) * (strlen(s)+1)), s);
 }
 
 int main(int argc, char *argv[])
@@ -282,7 +296,7 @@ int main(int argc, char *argv[])
 	int opt;
 
 	// ensure the entire display buffer has been cleared
-	initialize_display();
+	initialise_display();
 
 	// clear channel info
 	memset( channel_info, 0, (MAX_CHANNELS)*sizeof(struct channel_t));
@@ -293,13 +307,11 @@ int main(int argc, char *argv[])
 	while ((opt = getopt(argc, argv, "s:w:f:r:nhv")) != -1) {
 		switch (opt) {
 			case 's':
-				server_name = (char *) malloc (sizeof (char) * strlen(optarg));
-            			strcpy (server_name, optarg);
+				server_name = copy_malloc( optarg );
 				options |= JackServerName;
 				break;
 			case 'l':
-			    lcd_device = (char *) malloc (sizeof (char) * strlen(optarg));
-                strcpy (lcd_device, optarg);
+			    lcd_device = copy_malloc( optarg );
                 break;
 			case 'r':
 				ref_lev = atof(optarg);
@@ -324,12 +336,11 @@ int main(int argc, char *argv[])
 
 	// ensure we have a device
 	if (!lcd_device) {
-        lcd_device = (char *) malloc (sizeof (char) * strlen(DEFAULT_DEVICE));
-        strcpy (lcd_device, DEFAULT_DEVICE);
+        lcd_device = copy_malloc( DEFAULT_DEVICE );
 	}
-	fprintf( "Using LCD %s\n", lcd_device );
+	fprintf(stderr, "Using LCD %s\n", lcd_device );
 	lcd = open( lcd_device, O_WRONLY);
-	fprintf( "LCD %s opened as %d\n", lcd_device, lcd );
+	fprintf(stderr, "LCD %s opened as %d\n", lcd_device, lcd );
 
 
 	// Register with Jack
@@ -339,7 +350,8 @@ int main(int argc, char *argv[])
 	}
 	fprintf(stderr,"Registering as '%s'.\n", jack_get_client_name( client ) );
 
-	// Create our input port
+	// Create our input ports
+	unsigned int channel;
 	for (channel = 0; channel < MAX_CHANNELS; channel++)
 	{
 	    char port_name[10];
@@ -381,8 +393,7 @@ int main(int argc, char *argv[])
 
 	// Calculate the decay length (should be 1600ms)
 	decay_len = (int)(1.6f / (1.0f/rate));
-	
-	unsigned int channel;
+
 	while (running) {
 
 	    for  (channel = 0; channel < channels; channels++ )
