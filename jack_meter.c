@@ -38,10 +38,6 @@
 
 
 float bias = 1.0f;
-//float peak = 0.0f;
-
-//int dpeak = 0;
-//int dtime = 0;
 int decay_len;
 char *server_name = NULL;
 
@@ -63,7 +59,7 @@ int lcd;
 
 /* struct to handle 2 different displays (channels)*/
 #define MAX_CHANNELS 2
-unsigned int channels = 0;
+unsigned int channels = MAX_CHANNELS;
 struct channel_t {
     int dpeak;
     int dtime;
@@ -206,6 +202,7 @@ static int usage( const char * progname )
 	fprintf(stderr, "       -r      is the reference signal level for 0dB on the meter\n");
 	fprintf(stderr, "       -s      is the [optional] name given the jack server when it was started\n");
 	fprintf(stderr, "       -n      changes mode to output meter level as number in decibels\n");
+	fprintf(stderr, "       -c      number of channels to monitor\n");
 	fprintf(stderr, "       <port>  the port(s) to monitor (multiple ports are mixed)\n");
 	exit(1);
 }
@@ -287,8 +284,7 @@ char* copy_malloc( char* s ) {
 
 int main(int argc, char *argv[])
 {
-
-	jack_status_t status;
+    jack_status_t status;
 	int running = 1;
 	float ref_lev;
 	int decibels_mode = 0;
@@ -315,6 +311,14 @@ int main(int argc, char *argv[])
 				fprintf(stderr,"Reference level: %.1fdB\n", ref_lev);
 				bias = powf(10.0f, ref_lev * -0.05f);
 				break;
+			case 'c':
+			    channels = atoi(optarg);
+			    if (channels < 1) {
+			        channels = 1;
+			    } else if (channels > MAX_CHANNELS) {
+			        channels = MAX_CHANNELS;
+			    }
+			    break;
 			case 'f':
 				rate = atoi(optarg);
 				fprintf(stderr,"Updates per second: %d\n", rate);
