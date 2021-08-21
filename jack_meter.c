@@ -48,10 +48,10 @@ jack_options_t options = JackNoStartServer;
 #define DEFAULT_DEVICE "/dev/lcd0"
 #define CONSOLE_WIDTH 20
 #define DISPLAY_WIDTH (CONSOLE_WIDTH+6)
-char display_buffer[ DISPLAY_WIDTH ];
+#define DISPLAY_SIZE(s) (s+6)
+
 int xrun_count = 0;
-char* display_row = NULL;
-char* display_text = NULL;
+
 char* lcd_device = NULL;
 char peak_char='I';
 char meter_char='#';
@@ -208,7 +208,7 @@ static int usage( const char * progname )
 	exit(1);
 }
 
-void write_buffer_to_lcd( int len ) {
+void write_buffer_to_lcd( const char * const display_buffer, int len ) {
     int expected = len*sizeof(char);
     fprintf( stderr, "LCD: %d (%d)characters\n", len, expected );
     int written = write( lcd, display_buffer, expected );
@@ -218,8 +218,21 @@ void write_buffer_to_lcd( int len ) {
     fprintf( stderr, "LCD: written %d\n", written );
 }
 
+char* configure_buffer( char* display_buffer, char row ) {
+    // set the standard prefix for the display
+    display_buffer[0] = (char)0x1b;
+    display_buffer[1] ='[';
+    display_buffer[2] = row;
+    display_buffer[3] = ';';
+    display_buffer[4] = '0';
+    display_buffer[5] = 'H';
+    return &display_buffer[6];
+}
+
 void display_meter( unsigned int channel, int db )
 {
+    char display_buffer[DISPLAY_WIDTH];
+    char* display_text = configure_buffer( display_buffer, '3'+channel );
     fprintf( stderr, "Processing db=%d for channel %d\n", db, channel );
 	int size = iec_scale( db, CONSOLE_WIDTH );
 	fprintf( stderr, "size %d\n", size );
@@ -229,56 +242,46 @@ void display_meter( unsigned int channel, int db )
     } else if (channel_info[channel].dtime++ > decay_len) {
         channel_info[channel].dpeak = size;
     }
-    fprintf( stderr, "display_buffer=%p\ndisplay_text=%p\ndisplay_row=%p\n", display_buffer, display_text, display_row );
-
+    fprintf( stderr, "display_buffer=%p\ndisplay_text=%p\ndpeak=%i\nsize=%i\n", display_buffer, display_text, channel_info[channel].dpeak, size );
 
     memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char));
     memset( display_text, meter_char, size*sizeof(char) );
-    *display_row = (char)'3'+channel;
     display_text[channel_info[channel].dpeak]=peak_char;
+
     fprintf( stderr, "Disp: %s\n", display_text );
     // write the line
-    write_buffer_to_lcd( DISPLAY_WIDTH );
+    write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
 }
 
 void display_db( unsigned int channel, float db )
 {
+    char display_buffer[DISPLAY_WIDTH];
+    char* display_text = configure_buffer( display_buffer, '3'+channel );
     memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char));
     int size = sprintf( display_text, "%1.1f", db);
     display_text[size] = ' ';
-    *display_row = (char)'3'+channel;
     // write the line
-    write_buffer_to_lcd( DISPLAY_WIDTH );
+    write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
 }
 
 static int  increment_xrun(void *arg) {
+    fprintf( stderr, "XRUN\n" );
+    char display_buffer[DISPLAY_WIDTH];
+    char* display_text = configure_buffer( display_buffer, '2' );
     xrun_count++;
-    memset( display_text, ' ', CONSOLE_WIDTH*sizeof(char) );
     int size = sprintf( display_text, "Xrun: %d", xrun_count);
-    display_text[size] = ' ';
-    *display_row = '2';
-    write_buffer_to_lcd( DISPLAY_WIDTH );
+    write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
 
     return 0;
 }
 
 void initialise_display() {
 
+    char display_buffer[DISPLAY_WIDTH];
     // clear lines 2, 3, and 4t
     memset( display_buffer, 0, DISPLAY_WIDTH*sizeof(char) );
     int size = sprintf( display_buffer, "%c[2;0H%c[0J", (char)0x1b, (char)0x1b );
-    write_buffer_to_lcd( size );
-
-
-    // set the standard prefix for the display
-    display_buffer[0] = (char)0x1b;
-    display_buffer[1] ='[';
-    display_buffer[2] = '3';
-    display_buffer[3] = ';';
-    display_buffer[4] = '0';
-    display_buffer[5] = 'H';
-    display_row = &display_buffer[2];
-    display_text = &display_buffer[6];
+    write_buffer_to_lcd( display_buffer, size );
 
     // display the xrun
     xrun_count = -1;
@@ -411,6 +414,7 @@ int main(int argc, char *argv[])
             }
 	    }
         fsleep( 1.0f/rate );
+        fprintf( stderr, "WOKE UP\n" );
 	}
 
 	return 0;
