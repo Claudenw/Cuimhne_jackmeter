@@ -173,6 +173,7 @@ static void connect_port(jack_client_t *client, char *port_name, unsigned int ch
 		exit(1);
 	}
 
+	printf( "Connecting %s to channel %d\n", port_name, channel );
 	// Connect the port to our input port
 	fprintf(stderr,"Connecting '%s' to '%s'...\n", jack_port_name(port), jack_port_name(channel_info[channel].input_port));
 	if (jack_connect(client, jack_port_name(port), jack_port_name(channel_info[channel].input_port))) {
