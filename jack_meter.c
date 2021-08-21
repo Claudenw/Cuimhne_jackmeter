@@ -339,7 +339,9 @@ FILE* make_fifo( const char * name ) {
     umask( 0 );
     mkfifo( name, 0666);
     int fd1 = open( name, O_RDONLY | O_NONBLOCK );
-    return fdopen( fd1, "r" );
+    FILE *f =  fdopen( fd1, "r" );
+    setbuf(f, NULL);
+    return f;
 }
 
 int main(int argc, char *argv[])
