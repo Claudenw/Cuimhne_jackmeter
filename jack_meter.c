@@ -495,6 +495,10 @@ int main(int argc, char *argv[])
 	            break;
 	        }
 	    }
+	    int err = ferror(fifo);
+	    if (err) {
+	        debug( 3, "Read error on fifo: %d", err );
+	    }
 	    debug( 4, "update %d displays\n", channels );
 	    for  (channel = 0; channel < channels; channel++ )
 	    {
