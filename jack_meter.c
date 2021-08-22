@@ -224,7 +224,7 @@ char* configure_buffer( char* display_buffer, char row ) {
 void clear_display() {
     char display_buffer[DISPLAY_WIDTH];
     char* text_buffer = configure_buffer( display_buffer, '2' );
-    int size = sprintf( text_buffer, "%c[J", (char)0x1b )
+    int size = sprintf( text_buffer, "%c[J", (char)0x1b );
     write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
 }
 
@@ -289,7 +289,7 @@ void initialise_display() {
 
 }
 
-char* copy_malloc( char* s ) {
+char* copy_malloc( const char* s ) {
     return strcpy ((char *) malloc (sizeof (char) * (strlen(s)+1)), s);
 }
 
