@@ -265,7 +265,9 @@ void display_db( struct channel_info_t const *info )
 }
 
 static int  increment_xrun(void *arg) {
-    debug( 2, "XRUN\n" );
+    if (xrun_count >= 0) {
+        debug( 2, "XRUN\n" );
+    }
     char display_buffer[DISPLAY_WIDTH];
     char* display_text = configure_buffer( display_buffer, '2' );
     xrun_count++;
@@ -517,6 +519,8 @@ int main(int argc, char *argv[])
 	            displaying = 0;
 	            clear_display();
 	        } else if (cmd == '1' ) {
+	            xrun_count=-1;
+	            increment_xrun( NULL );
 	            displaying = 1;
 	        } else if (cmd == 'x' ) {
 	            running=0;
