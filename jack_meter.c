@@ -223,12 +223,9 @@ char* configure_buffer( char* display_buffer, char row ) {
 
 void clear_display() {
     char display_buffer[DISPLAY_WIDTH];
-    configure_buffer( display_buffer, '2' );
-    write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
-    configure_buffer( display_buffer, '3' );
-    write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
-    configure_buffer( display_buffer, '4' );
-    write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
+    char* text_buffer = configure_buffer( display_buffer, '2' );
+    int size = sprintf( text_buffer, "%c[J", (char)0x1b )
+    write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
 }
 
 void display_meter( struct channel_info_t *info )
