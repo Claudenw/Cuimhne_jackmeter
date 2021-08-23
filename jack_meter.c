@@ -268,12 +268,14 @@ static int  increment_xrun(void *arg) {
     if (xrun_count >= 0) {
         debug( 4, "XRUN\n" );
     }
-    char display_buffer[DISPLAY_WIDTH];
-    char* display_text = configure_buffer( display_buffer, '2' );
-    xrun_count++;
-    int size = sprintf( display_text, "Xrun: %d", xrun_count);
-    write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
 
+    xrun_count++;
+    if (displaying) {
+        char display_buffer[DISPLAY_WIDTH];
+        char* display_text = configure_buffer( display_buffer, '2' );
+        int size = sprintf( display_text, "Xrun: %d", xrun_count);
+        write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
+    }
     return 0;
 }
 
