@@ -357,6 +357,54 @@ static void cleanup()
     free_copy( fifo_name );
     free_copy( server_name );
     free_copy( lcd_device );
+}
+
+int check_cmd() {
+    // check for state change
+    clearerr(fifo);
+    char cmd = fgetc( fifo );
+    int err = ferror(fifo);
+    if (err) {
+        debug( 3, "Read error on fifo: %d", err );
+    } else {
+        clear_display();
+        if (cmd == '0') {
+            displaying = 0;
+        } else if (cmd == '1' ) {
+            channels = 1;
+            xrun_count=-1;
+            increment_xrun( NULL );
+            displaying = 1;
+        } else if (cmd == '2' ) {
+            channels = 2;
+            xrun_count=-1;
+            increment_xrun( NULL );
+            displaying = 1;
+        } else if (cmd == 'x' ) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+void update_display(int decibels_mode) {
+    int channel;
+    struct channel_info_t *info;
+    debug( 4, "update %d displays\n", channels );
+    for  (channel = 0; channel < channels; channel++ )
+    {
+        info = &channel_info[channel];
+        info->last_peak = info->peak;
+        channel_info[channel].peak = 0.0f;
+        info->db = 20.0f * log10f(info->last_peak * bias);
+        if (displaying) {
+            if (decibels_mode==1) {
+                display_db( info );
+            } else {
+                display_meter( info );
+            }
+        }
+    }
 
 }
 int main(int argc, char *argv[])
@@ -492,53 +540,14 @@ int main(int argc, char *argv[])
 	// Calculate the decay length (should be 1600ms)
 	decay_len = (int)(1.6f / (1.0f/rate));
 
-	struct channel_info_t *info;
-	int cmd;
 	while (running) {
-
-	    // check for state change
-	    clearerr(fifo);
-	    cmd = fgetc( fifo );
-	    int err = ferror(fifo);
-	    if (err) {
-	        debug( 3, "Read error on fifo: %d", err );
-	    } else {
-	        if (cmd == '0') {
-	            displaying = 0;
-	            clear_display();
-	        } else if (cmd == '1' ) {
-	            channels = 1;
-	            xrun_count=-1;
-	            increment_xrun( NULL );
-	            displaying = 1;
-            } else if (cmd == '2' ) {
-                channels = 2;
-                xrun_count=-1;
-                increment_xrun( NULL );
-                displaying = 1;
-	        } else if (cmd == 'x' ) {
-	            running=0;
-	            break;
-	        }
-	    }
-
-	    debug( 4, "update %d displays\n", channels );
-	    for  (channel = 0; channel < channels; channel++ )
-	    {
-	        info = &channel_info[channel];
-	        info->last_peak = info->peak;
-	        channel_info[channel].peak = 0.0f;
-	        info->db = 20.0f * log10f(info->last_peak * bias);
-	        if (displaying) {
-                if (decibels_mode==1) {
-                    display_db( info );
-                } else {
-                    display_meter( info );
-                }
-	        }
-	    }
-        fsleep( 1.0f/rate );
-        debug( 4, "WOKE UP\n" );
+	    running = check_cmd()
+        if (running)
+        {
+            update_display(decibels_mode);
+            fsleep( 1.0f/rate );
+            debug( 4, "WOKE UP\n" );
+        }
 	}
 
 	return 0;
