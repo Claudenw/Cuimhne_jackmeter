@@ -52,7 +52,7 @@ jack_options_t options = JackNoStartServer;
 #define DISPLAY_WIDTH (CONSOLE_WIDTH+6)
 #define DISPLAY_SIZE(s) (s+6)
 
-int xrun_count = 0;
+int xrun_count = -1;
 
 #define DEFAULT_FIFO_NAME "/run/jack_meter"
 char* fifo_name = NULL;
@@ -266,7 +266,7 @@ void display_db( struct channel_info_t const *info )
 
 static int  increment_xrun(void *arg) {
     if (xrun_count >= 0) {
-        debug( 2, "XRUN\n" );
+        debug( 4, "XRUN\n" );
     }
     char display_buffer[DISPLAY_WIDTH];
     char* display_text = configure_buffer( display_buffer, '2' );
@@ -275,20 +275,6 @@ static int  increment_xrun(void *arg) {
     write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
 
     return 0;
-}
-
-void initialise_display() {
-
-    char display_buffer[DISPLAY_WIDTH];
-    // clear lines 2, 3, and 4t
-    memset( display_buffer, 0, DISPLAY_WIDTH*sizeof(char) );
-    int size = sprintf( display_buffer, "%c[2;0H%c[0J", (char)0x1b, (char)0x1b );
-    write_buffer_to_lcd( display_buffer, size );
-
-    // display the xrun
-    xrun_count = -1;
-    increment_xrun( NULL );
-
 }
 
 char* copy_malloc( const char* s ) {
@@ -451,7 +437,7 @@ int main(int argc, char *argv[])
 	debug( 3, "LCD %s opened as %d\n", lcd_device, lcd );
 
     // ensure the entire display buffer has been cleared
-    initialise_display();
+    clear_display();
 
 	// Register with Jack
 	if ((client = jack_client_open("meter", options, &status, server_name)) == 0) {
@@ -465,7 +451,7 @@ int main(int argc, char *argv[])
 	for (channel = 0; channel < MAX_CHANNELS; channel++)
 	{
 	    char port_name[10];
-	    sprintf( port_name, "in%d", channel );
+	    sprintf( port_name, "in_%d", channel );
 	    debug( 4, "Registering port '%s' on channel %d.\n", port_name, channel );
         if (!(channel_info[channel].input_port = jack_port_register(client, port_name, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0))) {
             debug( 1, "Cannot register input port 'meter:%s'.\n", port_name );
@@ -519,9 +505,15 @@ int main(int argc, char *argv[])
 	            displaying = 0;
 	            clear_display();
 	        } else if (cmd == '1' ) {
+	            channels = 1;
 	            xrun_count=-1;
 	            increment_xrun( NULL );
 	            displaying = 1;
+            } else if (cmd == '2' ) {
+                channels = 2;
+                xrun_count=-1;
+                increment_xrun( NULL );
+                displaying = 1;
 	        } else if (cmd == 'x' ) {
 	            running=0;
 	            break;
