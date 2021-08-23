@@ -541,7 +541,7 @@ int main(int argc, char *argv[])
 	decay_len = (int)(1.6f / (1.0f/rate));
 
 	while (running) {
-	    running = check_cmd()
+	    running = check_cmd();
         if (running)
         {
             update_display(decibels_mode);
