@@ -388,16 +388,17 @@ int check_cmd() {
 }
 
 void update_display(int decibels_mode) {
-    int channel;
-    struct channel_info_t *info;
-    debug( 4, "update %d displays\n", channels );
-    for  (channel = 0; channel < channels; channel++ )
-    {
-        info = &channel_info[channel];
-        info->last_peak = info->peak;
-        channel_info[channel].peak = 0.0f;
-        info->db = 20.0f * log10f(info->last_peak * bias);
-        if (displaying) {
+    if (displaying) {
+        int channel;
+        struct channel_info_t *info;
+        debug( 4, "update %d displays\n", channels );
+        for  (channel = 0; channel < channels; channel++ )
+        {
+            info = &channel_info[channel];
+            info->last_peak = info->peak;
+            channel_info[channel].peak = 0.0f;
+            info->db = 20.0f * log10f(info->last_peak * bias);
+
             if (decibels_mode==1) {
                 display_db( info );
             } else {
