@@ -39,7 +39,7 @@
 #include "config.h"
 
 
-float bias = 1.0f;
+//float bias = 1.0f;
 int decay_len;
 char *server_name = NULL;
 
@@ -52,13 +52,13 @@ jack_options_t options = JackNoStartServer;
 #define DISPLAY_WIDTH (CONSOLE_WIDTH+6)
 #define DISPLAY_SIZE(s) (s+6)
 
-int xrun_count = -1;
+//int xrun_count = -1;
 
 #define DEFAULT_FIFO_NAME "/run/jack_meter"
 char* fifo_name = NULL;
 FILE *fifo = NULL;
 
-int displaying = 0;
+//int displaying = 0;
 char* lcd_device = NULL;
 char peak_char='I';
 char meter_char='#';
@@ -78,6 +78,22 @@ struct channel_info_t {
     float db;
     jack_port_t *input_port;
 } channel_info[MAX_CHANNELS];
+
+/*
+ * Display handling
+ */
+struct display_info_t {
+    int xrun_count;
+    int displaying;
+    time_t start_time;
+    time_t elapsed_seconds;
+    int channels_installed;
+    int channels_displaying;
+    int decibels_mode;
+    int update_rate;
+    float bias;
+    char xrun_len;
+};
 
 /* DEBUG */
 
@@ -221,6 +237,10 @@ char* configure_buffer( char* display_buffer, char row ) {
     return &display_buffer[6];
 }
 
+void set_column_number( char* display_buffer, char column ) {
+    display_buffer[4] = column;
+}
+
 void clear_display() {
     char display_buffer[DISPLAY_WIDTH];
     char* text_buffer = configure_buffer( display_buffer, '2' );
@@ -228,6 +248,18 @@ void clear_display() {
     write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
 }
 
+void display_time( time_t elapsed, struct display_info_t *display_info ) {
+    uint minutes = elapsed / 60;
+    uint seconds = elapsed % 60;
+
+    char display_buffer[DISPLAY_WIDTH];
+    char time_pos = 3+display_info->xrun_len;
+    char* text_buffer = configure_buffer( display_buffer, '2' );
+    set_column_number( display_buffer, (char)time_pos );
+    int size = sprintf( text_buffer, "T%02i:%02i", minutes, seconds );
+    write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
+
+}
 void display_meter( struct channel_info_t *info )
 {
     char display_buffer[DISPLAY_WIDTH];
@@ -264,20 +296,21 @@ void display_db( struct channel_info_t const *info )
     write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
 }
 
-int display_xrun() {
-    if (displaying) {
+void display_xrun(struct display_info_t *display_info) {
+    if (display_info->channels_displaying) {
         char display_buffer[DISPLAY_WIDTH];
         char* display_text = configure_buffer( display_buffer, '2' );
-        int size = sprintf( display_text, "Xrun: %d", xrun_count);
-        write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
+        display_info->xrun_len = (char) sprintf( display_text, "X: %d", display_info->xrun_count);
+        write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( display_info->xrun_len ) );
     }
 }
 static int  increment_xrun(void *arg) {
-    if (xrun_count >= 0) {
+    struct display_info_t *display_info = (struct display_info_t *)arg;
+    if (display_info->xrun_count >= 0) {
         debug( 4, "XRUN\n" );
     }
-    xrun_count++;
-    display_xrun();
+    display_info->xrun_count++;
+    display_xrun( display_info );
     return 0;
 }
 
@@ -361,7 +394,7 @@ static void cleanup()
     free_copy( lcd_device );
 }
 
-int check_cmd() {
+int check_cmd( struct display_info_t *display_info) {
     // check for state change
     clearerr(fifo);
     char cmd = fgetc( fifo );
@@ -370,19 +403,21 @@ int check_cmd() {
         debug( 3, "Read error on fifo: %d", err );
     } else {
         if (cmd == '0') {
-            displaying = 0;
+            display_info->channels_displaying = 0;
         } else if (cmd == '1' ) {
-            channels = 1;
-            displaying = 1;
+            time(&display_info->start_time);
+            display_info->elapsed_seconds=0;
+            display_info->channels_displaying = 1;
             clear_display();
-            xrun_count=-1;
-            increment_xrun( NULL );
+            display_info->xrun_count=-1;
+            increment_xrun( display_info );
         } else if (cmd == '2' ) {
-            channels = 2;
-            displaying = 1;
+            time(&display_info->start_time);
+            display_info->elapsed_seconds=0;
+            display_info->channels_displaying = 2;
             clear_display();
-            xrun_count=-1;
-            increment_xrun( NULL );
+            display_info->xrun_count=-1;
+            increment_xrun( display_info );
         } else if (cmd == 'x' ) {
             return 0;
         }
@@ -390,35 +425,45 @@ int check_cmd() {
     return 1;
 }
 
-void update_display(int decibels_mode) {
-    if (displaying) {
+void update_display(struct display_info_t *display_info) {
+    if (display_info->channels_displaying) {
         int channel;
         struct channel_info_t *info;
         debug( 4, "update %d displays\n", channels );
-        for  (channel = 0; channel < channels; channel++ )
+        for  (channel = 0; channel < display_info->channels_displaying; channel++ )
         {
             info = &channel_info[channel];
             info->last_peak = info->peak;
             channel_info[channel].peak = 0.0f;
-            info->db = 20.0f * log10f(info->last_peak * bias);
+            info->db = 20.0f * log10f(info->last_peak * display_info->bias);
 
-            if (decibels_mode==1) {
+            if (display_info->decibels_mode==1) {
                 display_db( info );
             } else {
                 display_meter( info );
             }
         }
+        time_t seconds = time( NULL ) - display_info->start_time;
+        if ( seconds != display_info->elapsed_seconds)
+        {
+            display_time( seconds, display_info );
+        }
+
     }
 
 }
 int main(int argc, char *argv[])
 {
     jack_status_t status;
-	int running = 1;
 	float ref_lev;
-	int decibels_mode = 0;
-	int rate = 8;
 	int opt;
+
+    struct display_info_t display_info;
+    memset( &display_info, 0, sizeof( struct display_info_t ));
+    display_info.update_rate = 8;
+    display_info.bias = 1.0f;
+    display_info.xrun_count = -1;
+
 
 	// clear channel info
 	memset( channel_info, 0, (MAX_CHANNELS)*sizeof(struct channel_info_t));
@@ -453,14 +498,14 @@ int main(int argc, char *argv[])
 			case 'r':
 				ref_lev = atof(optarg);
 				debug( 3, "Reference level: %.1fdB\n", ref_lev);
-				bias = powf(10.0f, ref_lev * -0.05f);
+				display_info.bias = powf(10.0f, ref_lev * -0.05f);
 				break;
 			case 'f':
-				rate = atoi(optarg);
-				debug( 3,"Updates per second: %d\n", rate);
+				display_info.update_rate = atoi(optarg);
+				debug( 3,"Updates per second: %d\n", display_info.update_rate);
 				break;
 			case 'n':
-				decibels_mode = 1;
+				display_info.decibels_mode = 1;
 				break;
 			case 'c':
 			    fifo = make_fifo( optarg );
@@ -513,11 +558,13 @@ int main(int argc, char *argv[])
         }
 	}
 	
+    display_info.channels_installed = channels;
+
 	// Register the cleanup function to be called when program exits
 	atexit( cleanup );
 
 	// register the xrun callback
-	jack_set_xrun_callback( client, increment_xrun, 0 );
+	jack_set_xrun_callback( client, increment_xrun, &display_info );
 	// Register the peak signal callback
 	jack_set_process_callback(client, process_peak, 0);
 
@@ -542,16 +589,12 @@ int main(int argc, char *argv[])
 	}
 
 	// Calculate the decay length (should be 1600ms)
-	decay_len = (int)(1.6f / (1.0f/rate));
+	decay_len = (int)(1.6f / (1.0f/display_info.update_rate));
 
-	while (running) {
-	    running = check_cmd();
-        if (running)
-        {
-            update_display(decibels_mode);
-            fsleep( 1.0f/rate );
-            debug( 4, "WOKE UP\n" );
-        }
+	while (check_cmd( &display_info )) {
+        update_display( &display_info );
+        fsleep( 1.0f/display_info.update_rate );
+        debug( 4, "WOKE UP\n" );
 	}
 
 	return 0;
