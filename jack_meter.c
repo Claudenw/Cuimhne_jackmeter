@@ -264,18 +264,20 @@ void display_db( struct channel_info_t const *info )
     write_buffer_to_lcd( display_buffer, DISPLAY_WIDTH );
 }
 
-static int  increment_xrun(void *arg) {
-    if (xrun_count >= 0) {
-        debug( 4, "XRUN\n" );
-    }
-
-    xrun_count++;
+int display_xrun() {
     if (displaying) {
         char display_buffer[DISPLAY_WIDTH];
         char* display_text = configure_buffer( display_buffer, '2' );
         int size = sprintf( display_text, "Xrun: %d", xrun_count);
         write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
     }
+}
+static int  increment_xrun(void *arg) {
+    if (xrun_count >= 0) {
+        debug( 4, "XRUN\n" );
+    }
+    xrun_count++;
+    display_xrun();
     return 0;
 }
 
@@ -371,16 +373,16 @@ int check_cmd() {
             displaying = 0;
         } else if (cmd == '1' ) {
             channels = 1;
-            xrun_count=-1;
-            increment_xrun( NULL );
             displaying = 1;
             clear_display();
+            xrun_count=-1;
+            increment_xrun( NULL );
         } else if (cmd == '2' ) {
             channels = 2;
-            xrun_count=-1;
-            increment_xrun( NULL );
             displaying = 1;
             clear_display();
+            xrun_count=-1;
+            increment_xrun( NULL );
         } else if (cmd == 'x' ) {
             return 0;
         }
