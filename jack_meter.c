@@ -105,7 +105,7 @@ static int process_peak(jack_nframes_t nframes, void *arg)
 	    info = &channel_info[channel];
         /* just incase the port isn't registered yet */
         if (info->input_port == NULL) {
-            debug(2, "Channel %d ls\n", channel);
+            debug(2, "Channel %d is not enabled\n", channel);
         } else {
             /* get the audio samples, and find the peak sample */
             in = (jack_default_audio_sample_t *) jack_port_get_buffer(info->input_port, nframes);
@@ -202,12 +202,12 @@ static int usage( const char * progname )
 
 void write_buffer_to_lcd( const char * const display_buffer, int len ) {
     int expected = len*sizeof(char);
-    debug( 4, "LCD: %d (%d) characters\n", len, expected );
+    debug( 5, "LCD: %d (%d) characters\n", len, expected );
     int written = write( lcd, display_buffer, expected );
     if (written != expected ) {
         debug( 2, "*** only wrote %d of %d bytes\n", written, expected);
     }
-    debug( 4, "LCD: written %d\n", written );
+    debug( 4, "LCD: %d characters written\n", written );
 }
 
 char* configure_buffer( char* display_buffer, char row ) {
@@ -367,7 +367,6 @@ int check_cmd() {
     if (err) {
         debug( 3, "Read error on fifo: %d", err );
     } else {
-        clear_display();
         if (cmd == '0') {
             displaying = 0;
         } else if (cmd == '1' ) {
@@ -375,11 +374,13 @@ int check_cmd() {
             xrun_count=-1;
             increment_xrun( NULL );
             displaying = 1;
+            clear_display();
         } else if (cmd == '2' ) {
             channels = 2;
             xrun_count=-1;
             increment_xrun( NULL );
             displaying = 1;
+            clear_display();
         } else if (cmd == 'x' ) {
             return 0;
         }
