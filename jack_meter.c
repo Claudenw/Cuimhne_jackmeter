@@ -255,8 +255,9 @@ void display_time( time_t elapsed, struct display_info_t *display_info ) {
     char display_buffer[DISPLAY_WIDTH];
     char time_pos = 3+display_info->xrun_len;
     char* text_buffer = configure_buffer( display_buffer, '2' );
+    debug( 3, "time pos = %d\n", time_pos );
     set_column_number( display_buffer, (char)time_pos );
-    int size = sprintf( text_buffer, "T%02i:%02i", minutes, seconds );
+    int size = sprintf( text_buffer, "T:%02i:%02i", minutes, seconds );
     write_buffer_to_lcd( display_buffer, DISPLAY_SIZE( size ) );
 
 }
