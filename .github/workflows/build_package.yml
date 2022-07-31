@@ -1,0 +1,16 @@
+name: build_package
+on: [push]
+jobs:
+  build-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      - name: Install Cross-Compile Support (ARMHF)
+        run: |
+          sudo apt-get update
+          sudo apt-get install gcc-arm-linux-gnueabihf
+      - name: Build Package
+        run: |
+          ./configure --host arm-linux-gnueabihf
+          make 
