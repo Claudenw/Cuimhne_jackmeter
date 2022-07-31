@@ -9,8 +9,12 @@ jobs:
       - name: Install Cross-Compile Support (ARMHF)
         run: |
           sudo apt-get update
-          sudo apt-get install gcc-arm-linux-gnueabihf
+          sudo apt-get install gcc-arm-linux-gnueabihf libjack-jackd2-dev
       - name: Build Package
         run: |
+	  aclocal
+	  autoheader
+	  automake --add-missing --copy
+	  autoconf
           ./configure --host arm-linux-gnueabihf
           make 

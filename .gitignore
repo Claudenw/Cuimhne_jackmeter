@@ -6,9 +6,11 @@
 *.o
 aclocal.m4
 autom4te.cache
+build-scripts/
 config.cache
 config.log
 config.status
+configure
 Makefile
 Makefile.in
 stamp-h1
