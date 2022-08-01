@@ -11,5 +11,5 @@ autoheader
 automake --add-missing --copy
 autoconf
 ./configure --host arm-linux-gnueabihf  --disable-dependency-tracking
-make
+make clean all
 
