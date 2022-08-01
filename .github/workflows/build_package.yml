@@ -7,7 +7,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
       - name: Compile Code
-        run: docker run -it -v `pwd`:/src debian bash -C "/src/build.sh"
+        run: docker run -v `pwd`:/src debian bash -C "/src/build.sh"
       - uses: actions/upload-artifact@v3
         with:
           name: jack_meter
