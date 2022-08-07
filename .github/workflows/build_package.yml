@@ -18,8 +18,8 @@ jobs:
            ssh-keyscan -p 222 archive.cuimhneceoil.ie >> ~/.ssh/known_hosts
            openssl aes-256-cbc -in .github/workflows/secrets/apt_ecdsa.enc -out .github/workflows/secrets/apt_ecdsa -pass pass:$ENCRYPTION_KEY -d -md sha512  -pbkdf2 -iter 100000
            chmod 0700 .github/workflows/secrets/apt_ecdsa
-           ls -l target/*
-           scp -i .github/workflows/secrets/apt_ecdsa -P 222 target/* apt@archive.cuimhneceoil.ie:~/dev/ceoil
+           ls -l debian/artifacts/*
+           scp -i .github/workflows/secrets/apt_ecdsa -P 222 debian/artifacts/* apt@archive.cuimhneceoil.ie:~/dev/ceoil
            ssh -i .github/workflows/secrets/apt_ecdsa -p 222 apt@archive.cuimhneceoil.ie -C "touch dev.flg"
            cat ~/.ssh/known_hosts
       
