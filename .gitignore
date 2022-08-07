@@ -25,9 +25,9 @@ debian/debhelper-build-stamp
 debian/docs
 debian/files
 debian/gbp.conf
-debian/jackmeter.debhelper.log
-debian/jackmeter.substvars
-debian/jackmeter/
+debian/cuimhne-jackmeter.debhelper.log
+debian/cuimhne-jackmeter.substvars
+debian/cuimhne-jackmeter/
 debian/source/local-options
 target/
 

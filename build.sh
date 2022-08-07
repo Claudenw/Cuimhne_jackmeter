@@ -14,4 +14,4 @@ autoconf
 dh clean
 fakeroot dh binary-arch
 mkdir -p target
-mv ../jackmeter*.deb target
+mv ../cuimhne-jackmeter*.deb target
