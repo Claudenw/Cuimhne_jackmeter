@@ -1,11 +1,11 @@
-jackmeter (0.4-1) unstable; urgency=low
+cuimhne-jackmeter (0.4-1) unstable; urgency=low
 
   * New upstream release.
   * 01-binutils_gold.patch has been adopted by upstream.
 
  -- Alessio Treglia <alessio@debian.org>  Sun, 12 Dec 2010 02:47:58 +0100
 
-jackmeter (0.3-2) unstable; urgency=low
+cuimhne-jackmeter (0.3-2) unstable; urgency=low
 
   * Add missing Vcs-* tags.
   * Switch to 3.0 (quilt) format.
@@ -13,7 +13,7 @@ jackmeter (0.3-2) unstable; urgency=low
 
  -- Alessio Treglia <alessio@debian.org>  Fri, 03 Dec 2010 14:20:21 +0100
 
-jackmeter (0.3-1) unstable; urgency=low
+cuimhne-jackmeter (0.3-1) unstable; urgency=low
 
   * Initial release (Closes: #584143)
 
