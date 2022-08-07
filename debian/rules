@@ -1,0 +1,19 @@
+#!/usr/bin/make -f
+
+dh_auto_configure:
+	./configure --host arm-linux-gnueabihf  --disable-dependency-tracking CC=/usr/bin/arm-linux-gnueabihf-gcc
+
+
+%:
+	dh --buildsystem=autoconf --with autotools_dev  $@
+
+override_dh_installchangelogs:
+	dh_installchangelogs NEWS
+
+
+override_dh_auto_configure:	
+	./configure --host arm-linux-gnueabihf  --disable-dependency-tracking CC=/usr/bin/arm-linux-gnueabihf-gcc  CC=/usr/bin/arm-linux-gnueabihf-gcc
+
+
+override_dh_usrlocal:
+

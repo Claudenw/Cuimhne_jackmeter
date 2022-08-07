@@ -10,6 +10,7 @@ aclocal
 autoheader
 automake --add-missing --copy
 autoconf
-./configure --host arm-linux-gnueabihf  --disable-dependency-tracking
-make clean all
-
+dh clean
+fakeroot dh binary-arch
+mkdir -p target
+mv ../jackmeter*.deb target

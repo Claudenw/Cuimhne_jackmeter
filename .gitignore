@@ -1,9 +1,11 @@
+*~
 .deps
 .libs
 *.gz
 *.la
 *.lo
 *.o
+debian/.debhelper/
 aclocal.m4
 autom4te.cache
 build-scripts/
@@ -17,3 +19,15 @@ stamp-h1
 config.h
 config.h.in
 jack_meter
+debian/autoreconf.after
+debian/autoreconf.before
+debian/debhelper-build-stamp
+debian/docs
+debian/files
+debian/gbp.conf
+debian/jackmeter.debhelper.log
+debian/jackmeter.substvars
+debian/jackmeter/
+debian/source/local-options
+target/
+

@@ -1,0 +1,23 @@
+Source: jackmeter
+Section: sound
+Priority: optional
+Maintainer: Debian Multimedia Maintainers <debian-multimedia@lists.debian.org>
+Uploaders: Alessio Treglia <alessio@debian.org>,
+ Andrew Gee <andrew@andrewgee.org>
+Build-Depends: debhelper (>= 7.0.50~),
+ autoconf,
+ autotools-dev (>= 20100122.1~),
+ libjack-dev
+Standards-Version: 3.8.4
+Homepage: http://www.aelius.com/njh/jackmeter/
+Vcs-Git: https://salsa.debian.org/multimedia-team/jackmeter.git
+Vcs-Browser: https://salsa.debian.org/multimedia-team/jackmeter
+
+Package: jackmeter
+Architecture: any
+Depends: ${shlibs:Depends},
+ ${misc:Depends}
+Description: a basic command line meter for the JACK audio system
+ Jack Meter is a command line audio meter for the JACK audio system. This
+ allows the user to check signal levels on remote computers without the need
+ for graphical systems.
