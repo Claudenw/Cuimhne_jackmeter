@@ -31,3 +31,4 @@ debian/jackmeter/
 debian/source/local-options
 target/
 
+/.project
