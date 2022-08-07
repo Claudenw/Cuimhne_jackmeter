@@ -14,4 +14,6 @@ autoconf
 dh clean
 dpkg-buildpackage -aarmhf -B
 mkdir -p debian/artifacts
+ls -l ..
+find .. -name cuimhne-jackmeter?\* -type f
 mv ../cuimhne-jackmeter_* debian/artifacts
