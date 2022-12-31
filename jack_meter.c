@@ -91,7 +91,7 @@ struct channel_info_t {
  * Display handling
  */
 struct display_info_t {
-	bool recording;
+	int recording;
 	int xrun_count;
 	int displaying;
 	time_t start_time;
@@ -275,9 +275,9 @@ void clear_display(struct display_info_t *display_info) {
 	}
 }
 
-void display_time(time_t elapsed, struct display_info_t *display_info) {
-	uint minutes = elapsed / 60;
-	uint seconds = elapsed % 60;
+void display_time(struct display_info_t *display_info) {
+	uint minutes = display_info->elapsed_seconds / 60;
+	uint seconds = display_info->elapsed_seconds % 60;
 
 	char display_buffer[DISPLAY_WIDTH];
 	char time_pos = '1' + display_info->xrun_len;
@@ -285,7 +285,6 @@ void display_time(time_t elapsed, struct display_info_t *display_info) {
 	set_column_number(display_buffer, (char) time_pos);
 	int size = sprintf(text_buffer, "  T:%02i:%02i", minutes, seconds);
 	write_buffer_to_lcd(display_buffer, DISPLAY_SIZE(size));
-
 }
 
 void display_meter(struct channel_info_t *info) {
@@ -427,6 +426,13 @@ static void cleanup() {
 	free_copy(lcd_device);
 }
 
+void clear_recording_status() {
+	char display_buffer[DISPLAY_WIDTH];
+	char *text_buffer = configure_buffer(display_buffer, '2');
+	int size = sprintf(text_buffer, CLEAR_LINE, ESC, CLEAR_ALL);
+	write_buffer_to_lcd(display_buffer, DISPLAY_SIZE(size));
+}
+
 int check_cmd(struct display_info_t *display_info) {
 	// check for state change
 	clearerr(fifo);
@@ -466,17 +472,10 @@ int check_cmd(struct display_info_t *display_info) {
 		if (display_info->recording) {
 			clear_recording_status();
 		}
-		clear_display (display_info)
+		clear_display (display_info);
 		return 0;
 	}
 	return 1;
-}
-
-void clear_recording_status() {
-	char display_buffer[DISPLAY_WIDTH];
-	char *text_buffer = configure_buffer(display_buffer, '2');
-	int size = sprintf(text_buffer, CLEAR_LINE, ESC, CLEAR_ALL);
-	write_buffer_to_lcd(display_buffer, DISPLAY_SIZE(size));
 }
 
 void update_display(struct display_info_t *display_info) {
@@ -500,7 +499,8 @@ void update_display(struct display_info_t *display_info) {
 		if (display_info->recording) {
 			time_t seconds = time(NULL) - display_info->start_time;
 			if (seconds != display_info->elapsed_seconds) {
-				display_time(seconds, display_info);
+				display_info->elapsed_seconds = seconds;
+				display_time(display_info);
 			}
 		}
 	}
