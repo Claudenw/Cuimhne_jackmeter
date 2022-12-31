@@ -267,7 +267,7 @@ void clear_display(struct display_info_t *display_info) {
 		char *text_buffer = configure_buffer(display_buffer, '3');
 		int size = 0;
 		if (display_info->channels_displaying == 2) {
-			size = sprintf(text_buffer, CLEAR_SCREEN, ESC, CLEAR_ALL);
+			size = sprintf(text_buffer, CLEAR_SCREEN, ESC, CLEAR_TO_END);
 		} else {
 			size = sprintf(text_buffer, CLEAR_LINE, ESC, CLEAR_ALL);
 		}
