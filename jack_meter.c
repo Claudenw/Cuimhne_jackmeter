@@ -419,7 +419,6 @@ static void cleanup() {
 	}
 	/* Leave the jack graph */
 	jack_client_close(client);
-	clear_display();
 	remove_fifo(fifo_name);
 	free_copy(fifo_name);
 	free_copy(server_name);
@@ -587,7 +586,7 @@ int main(int argc, char *argv[]) {
 	debug(3, "LCD %s opened as %d\n", lcd_device, lcd);
 
 	// ensure the entire display buffer has been cleared
-	clear_display();
+	clear_display(&display_info);
 
 	// Register with Jack
 	if ((client = jack_client_open("meter", options, &status, server_name))
@@ -647,7 +646,7 @@ int main(int argc, char *argv[]) {
 		fsleep(1.0f / display_info.update_rate);
 		debug(4, "WOKE UP\n");
 	}
-
+	clear_display(&display_info);
 	return 0;
 }
 
