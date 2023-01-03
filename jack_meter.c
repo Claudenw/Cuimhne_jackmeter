@@ -209,7 +209,7 @@ static int fsleep(float secs) {
 static int usage(const char *progname) {
 	fprintf(stderr, "jackmeter version %s\n\n", VERSION);
 	fprintf(stderr,
-			"Usage %s [-f freqency] [-r ref-level] [-w width] [-s servername] [-n] [<port>, ...]\n\n",
+			"Usage %s [-f freqency] [-r ref-level] [-s servername] [-n] [<port>, ...]\n\n",
 			progname);
 	fprintf(stderr,
 			"where  -f      is how often to update the meter per second [8]\n");
@@ -543,7 +543,7 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'l':
 			lcd_device = copy_malloc(optarg);
-			debug(3, "Setting lcd_device %s\n", server_name);
+			debug(3, "Setting lcd_device %s\n", lcd_device);
 			break;
 		case 'r':
 			ref_lev = atof(optarg);
@@ -555,9 +555,11 @@ int main(int argc, char *argv[]) {
 			debug(3, "Updates per second: %d\n", display_info.update_rate);
 			break;
 		case 'n':
+			debug(3, "Using decibels mode\n");
 			display_info.decibels_mode = 1;
 			break;
 		case 'c':
+			debug(3, "Using fifo channel: %s\n", optarg);
 			fifo = make_fifo(optarg);
 			break;
 		case 'h':
@@ -589,8 +591,7 @@ int main(int argc, char *argv[]) {
 	clear_display(&display_info);
 
 	// Register with Jack
-	if ((client = jack_client_open("meter", options, &status, server_name))
-			== 0) {
+	if ((client = jack_client_open("meter", options, &status, server_name))	== 0) {
 		debug(1, "Failed to start jack client: %d\n", status);
 		exit(1);
 	}
