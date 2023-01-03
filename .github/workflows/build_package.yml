@@ -1,5 +1,5 @@
 name: build_package
-oon: 
+on: 
     push: 
         branches: [ main ]
 jobs:
