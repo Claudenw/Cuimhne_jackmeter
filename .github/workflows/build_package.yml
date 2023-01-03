@@ -1,25 +1,31 @@
 name: build_package
-on: [push]
+oon: 
+    push: 
+        branches: [ main ]
 jobs:
-  build-package:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+    build:
+        name: build
+        runs-on: self-hosted
+        steps:
+        - name: Checkout Code
+          uses: actions/checkout@v3
+          
+        - name: Configure Code
+          run: ./configure
+                    
+        - name: Configure Code
+          run:  make
         
-      - name: Compile Code
-        run: docker run -v `pwd`:/src debian bash -C "/src/build.sh"
-      
-      - name: Update APT
-        env:
-          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
-        run: |
-           mkdir -p ~/.ssh
-           ssh-keyscan -p 222 archive.cuimhneceoil.ie >> ~/.ssh/known_hosts
-           openssl aes-256-cbc -in .github/workflows/secrets/apt_ecdsa.enc -out .github/workflows/secrets/apt_ecdsa -pass pass:$ENCRYPTION_KEY -d -md sha512  -pbkdf2 -iter 100000
-           chmod 0700 .github/workflows/secrets/apt_ecdsa
-           ls -l debian/artifacts/*
-           scp -i .github/workflows/secrets/apt_ecdsa -P 222 debian/artifacts/* apt@archive.cuimhneceoil.ie:~/dev/ceoil
-           ssh -i .github/workflows/secrets/apt_ecdsa -p 222 apt@archive.cuimhneceoil.ie -C "touch dev.flg"
-           cat ~/.ssh/known_hosts
+        - name: Update APT
+          env:
+            ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          run: |
+             mkdir -p ~/.ssh
+             ssh-keyscan -p 222 archive.cuimhneceoil.ie >> ~/.ssh/known_hosts
+             openssl aes-256-cbc -in .github/workflows/secrets/apt_ecdsa.enc -out .github/workflows/secrets/apt_ecdsa -pass pass:$ENCRYPTION_KEY -d -md sha512  -pbkdf2 -iter 100000
+             chmod 0700 .github/workflows/secrets/apt_ecdsa
+             ls -l debian/artifacts/*
+             scp -i .github/workflows/secrets/apt_ecdsa -P 222 debian/artifacts/* apt@archive.cuimhneceoil.ie:~/dev/ceoil
+             ssh -i .github/workflows/secrets/apt_ecdsa -p 222 apt@archive.cuimhneceoil.ie -C "touch dev.flg"
+             cat ~/.ssh/known_hosts
       
