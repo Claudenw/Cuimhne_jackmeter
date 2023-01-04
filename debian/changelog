@@ -1,20 +1,4 @@
-cuimhne-jackmeter (0.4-1) unstable; urgency=low
+cuimhne-jackmeter (0.1) unstable; urgency=low
 
-  * New upstream release.
-  * 01-binutils_gold.patch has been adopted by upstream.
+  --  <builder@raspberrypi>  Wed, 04 Jan 2023 17:41:13 +0000
 
- -- Alessio Treglia <alessio@debian.org>  Sun, 12 Dec 2010 02:47:58 +0100
-
-cuimhne-jackmeter (0.3-2) unstable; urgency=low
-
-  * Add missing Vcs-* tags.
-  * Switch to 3.0 (quilt) format.
-  * Add patch to fix FTBFS with binutils-gold.
-
- -- Alessio Treglia <alessio@debian.org>  Fri, 03 Dec 2010 14:20:21 +0100
-
-cuimhne-jackmeter (0.3-1) unstable; urgency=low
-
-  * Initial release (Closes: #584143)
-
- -- Andrew Gee <andrew@andrewgee.org>  Tue, 01 Jun 2010 18:21:54 +0100

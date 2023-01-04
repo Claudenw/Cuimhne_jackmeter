@@ -18,7 +18,7 @@ jobs:
           run: ./autogen.sh
           
         - name: Compile
-          run: make
+          run: ./build.sh
           
 
       
