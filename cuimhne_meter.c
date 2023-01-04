@@ -1,10 +1,9 @@
 /*
  jack_meter.c
  LCD display based Digital Peak Meter for JACK on Cuimhne Ceoil
- Copyright (C) 2021 Claude Warren
- Based on
+ Copyright (C) 2021 - 2023 Claude Warren
 
- jackmeter.c
+ Based on  jackmeter.c
  Simple console based Digital Peak Meter for JACK
  Copyright (C) 2005  Nicholas J. Humfrey
 

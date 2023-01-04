@@ -1,4 +1,4 @@
-Source: cuimhne-jackmeter
+Source: cuimhne-meter
 Section: sound
 Priority: optional
 Maintainer: Claude Warren <claude@cuimhneceoil.ie>
@@ -8,10 +8,8 @@ Build-Depends: debhelper (>= 7.0.50~),
  libjack-dev
 Standards-Version: 3.8.4
 Homepage: https://github.com/Claudenw/Cuimhne_jackmeter
-##Vcs-Git: https://salsa.debian.org/multimedia-team/jackmeter.git
-##Vcs-Browser: https://salsa.debian.org/multimedia-team/jackmeter
 
-Package: cuimhne-jackmeter
+Package: cuimhne-meter
 Architecture: any
 Depends: ${shlibs:Depends},
  ${misc:Depends}
