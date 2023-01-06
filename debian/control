@@ -1,4 +1,4 @@
-Source: cuimhne-meter
+Source: cuimhne-jackmeter
 Section: sound
 Priority: optional
 Maintainer: Claude Warren <claude@cuimhneceoil.ie>
@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 7.0.50~),
 Standards-Version: 3.8.4
 Homepage: https://github.com/Claudenw/Cuimhne_jackmeter
 
-Package: cuimhne-meter
+Package: cuimhne-jackmeter
 Architecture: any
 Depends: ${shlibs:Depends},
  ${misc:Depends}

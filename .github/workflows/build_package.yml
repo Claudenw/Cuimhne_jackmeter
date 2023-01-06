@@ -7,6 +7,8 @@ jobs:
         name: build
         runs-on: self-hosted
         steps:
+        - name: Pre build clean
+          run: rm -rf *
       
         - name: Checkout Code
           uses: actions/checkout@v3
