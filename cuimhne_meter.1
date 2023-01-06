@@ -1,15 +1,15 @@
-.TH cuimhne_meter "1" 0.3 "September 2005"
+.TH cuimhne_jackmeter "1" 0.3 "September 2005"
 .SH NAME
-cuimhne_meter \- Console based Digital Peak Meter for JACK
+cuimhne_jackmeter \- LDC display based Digital Peak Meter for JACK
 .SH SYNOPSYS
-\fBjack_meter\fR [ \-f \fIfreqency\fR ] [ \-r \fIref-level\fR ]
-[ \-w \fIwidth\fR ] [\-n ] [ \fI<port>\fR, ... ]
+\fBcuimhne_jackmeter\fR [ \-f \fIfreqency\fR ] [ \-r \fIref-level\fR ]
+ [\-n ] [ \fI<port>\fR, ... ]
 .br
-\fBjack_meter\fR
+\fBcuimhne_jackmeter\fR
 \-h
 
 .SH DESCRIPTION
-\fBjack_meter\fR is a basic console based DPM (Digital Peak Meter).
+\fBcuimhne_jackmeter\fR is a basic console based DPM (Digital Peak Meter).
 I wrote it for quickly checking remote signal levels, without having to 
 run X11 to use a pretty graphical meter such as \fBmeterbridge\fR.
 
@@ -27,10 +27,6 @@ How many times per second to refresh the meter. Default is \fB8\fR.
 .br
 The reference signal level for 0dB on the meter.
 .TP
-\fB\-w \fI width \fR
-.br
-The width of the meter (number of characters). The default is \fB79\fR,
-one less than the typical terminal width.
 \fB\-n
 .br
 Outputs meter level as a number in decibels instead of a bar graph display. 
@@ -44,4 +40,5 @@ http://plugin.org.uk/meterbridge/
 http://jackit.sourceforge.net/
 
 .SH AUTHORS
+Claude Warren <claude@cuimhneceoil.ie>
 Nicholas J. Humfrey <njh@aelius.com>

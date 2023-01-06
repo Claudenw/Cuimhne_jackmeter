@@ -1,5 +1,5 @@
 /*
- jack_meter.c
+ cuimhne_jackmeter.c
  LCD display based Digital Peak Meter for JACK on Cuimhne Ceoil
  Copyright (C) 2021 - 2023 Claude Warren
 
@@ -206,7 +206,7 @@ static int fsleep(float secs) {
 
 /* Display how to use this program */
 static int usage(const char *progname) {
-	fprintf(stderr, "jackmeter version %s\n\n", VERSION);
+	fprintf(stderr, "cuimhne_jackmeter version %s\n\n", VERSION);
 	fprintf(stderr,
 			"Usage %s [-f freqency] [-r ref-level] [-s servername] [-n] [<port>, ...]\n\n",
 			progname);
