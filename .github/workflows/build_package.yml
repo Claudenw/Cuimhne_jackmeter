@@ -20,5 +20,9 @@ jobs:
         - name: Compile
           run: ./build.sh
           
+        - name: Deploy
+          run: ~/.ssh/deploy.sh ../*.deb
+          
+
 
       
