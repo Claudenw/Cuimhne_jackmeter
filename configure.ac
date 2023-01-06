@@ -3,8 +3,8 @@ AC_PREREQ(2.59)
 
 
 dnl ############# Initialization
-AC_INIT([cuimhne-meter], [0.1], [claude@cuimhneceoil.ie], cuimhne-meter)
-AC_CONFIG_SRCDIR([cuimhne_meter.c])
+AC_INIT([cuimhne-jackmeter], [0.1], [claude@cuimhneceoil.ie], cuimhne-jackmeter)
+AC_CONFIG_SRCDIR([cuimhne_jackmeter.c])
 AC_CONFIG_AUX_DIR([build-scripts])
 AC_CONFIG_MACRO_DIR([build-scripts])
 AM_INIT_AUTOMAKE
